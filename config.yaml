@@ -1,0 +1,14 @@
+servers:
+  exam:
+    username: user_exam
+    password: password_exam
+    uri: uri_exam
+  test1:
+    username: user_test1
+    password: password_test1
+    uri: uri_test1
+  test2:
+    username: user_test2
+    password: password_test2
+    uri: uri_test2
+mode: test

@@ -6,7 +6,9 @@
     "monolog/monolog": "^1.24",
     "sabre/xml": "^2.1",
     "guzzlehttp/guzzle": "~6.0",
-    "phpunit/phpunit": "^8"
+    "phpunit/phpunit": "^8",
+    "symfony/yaml": "^4.3",
+    "doctrine/orm": "2.6.x-dev"
   },
   "require-dev": {
     "psy/psysh": "@stable",
@@ -23,6 +25,11 @@
   "config": {
     "platform": {
       "php": "7.2.19"
+    }
+  },
+  "autoload": {
+    "psr-4": {
+      "digitall\\": "digitall/"
     }
   },
   "authors": [
