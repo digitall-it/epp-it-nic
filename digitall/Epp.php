@@ -7,15 +7,17 @@ use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
+use RuntimeException;
+use SimpleXMLElement;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Error\RuntimeError;
 use Twig\Error\SyntaxError;
 use Twig\Loader\FilesystemLoader;
 
-
 /**
  * Class Epp
+ * @property Logger log
  * @package digitall
  */
 class Epp
@@ -24,12 +26,16 @@ class Epp
      * @var  $_credentials
      * @var Client $_client
      */
-    private $_credentials;
     private $client;
+    /**
+     * @var Environment
+     */
+    private $tpl;
 
     /**
      * Epp constructor.
      * @param $name
+     * @param $credentials
      */
     public function __construct($name, $credentials)
     {
@@ -44,10 +50,8 @@ class Epp
         }
 
 
-        $this->_credentials = $credentials;
-
         $this->client = new Client([
-            'base_uri' => $this->_credentials["uri"],
+            'base_uri' => $credentials['uri'],
             'verify' => false
         ]);
 
@@ -56,7 +60,7 @@ class Epp
         //$tpl_cfg['cache'] = __DIR__ . '/cache';
         $this->tpl = new Environment($tpl_loader, $tpl_cfg);
 
-        $this->log->info("EPP client created");
+        $this->log->info('EPP client created');
     }
 
     /**
@@ -70,7 +74,7 @@ class Epp
     /**
      * @throws Exception
      */
-    public function hello()
+    public function hello(): void
     {
 
 //echo $twig->render('index.html', ['name' => 'Fabien']);
@@ -78,34 +82,48 @@ class Epp
         try {
             $xml = $this->tpl->render('hello.xml');
         } catch (LoaderError $e) {
-            throw new Exception('Cannot load template file during rendering of hello template: ' . $e->getMessage());
+            throw new RuntimeException('Cannot load template file during rendering of hello template: ' . $e->getMessage());
         } catch (RuntimeError $e) {
-            throw new Exception('Runtime error during rendering of hello template: ' . $e->getMessage());
+            throw new RuntimeException('Runtime error during rendering of hello template: ' . $e->getMessage());
         } catch (SyntaxError $e) {
-            throw new Exception('Syntax error during rendering of hello template: ' . $e->getMessage());
-        };
-
-        $this->log->info("hello sent");
-
-        try {
-            /* @var $client Client */
-            $res = $this->client->request('POST', '',
-                [
-                    'body' => $xml
-                ]);
-        } catch (GuzzleException $e) {
-            throw new Exception('Error during transmission: ' . $e->getMessage());
+            throw new RuntimeException('Syntax error during rendering of hello template: ' . $e->getMessage());
         }
 
-        $xml = simplexml_load_string($res->getBody());
-        $greeting = count($xml->greeting) != 0;
+        $this->log->info('hello sent');
+
+        $response = $this->send($xml);
+
+        $greeting = count($response->greeting) !== 0;
         if ($greeting) {
-            $this->log->info("Received a greeting response");
+            $this->log->info('Received a greeting response');
         } else {
             //$this->log->error("No greeting response after hello");
             //die('No greeting response after hello');
-            throw new Exception("No greeting response after hello");
+            throw new RuntimeException('No greeting response after hello');
         }
 
+    }
+
+    /**
+     * @param string $xml
+     * @return SimpleXMLElement
+     */
+    private function send(string $xml): SimpleXMLElement
+    {
+        try {
+            /* @var $client Client */
+            if (isset($xml)) {
+                $res = $this->client->request('POST', '',
+                    [
+                        'body' => $xml
+                    ]);
+            } else {
+                throw new \http\Exception\RuntimeException('Empty request');
+            }
+        } catch (GuzzleException $e) {
+            throw new RuntimeException('Error during transmission: ' . $e->getMessage());
+        }
+
+        return simplexml_load_string($res->getBody());
     }
 }
