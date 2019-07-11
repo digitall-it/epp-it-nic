@@ -4,7 +4,7 @@
     "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
     "This file is @generated automatically"
   ],
-  "content-hash": "d7969e54f5d4a1ce436b5f166e6b8747",
+  "content-hash": "f36401859995346b360e9d3165425ffb",
   "packages": [
     {
       "name": "doctrine/annotations",
@@ -2027,118 +2027,6 @@
       ],
       "description": "A polyfill for getallheaders.",
       "time": "2019-03-08T08:55:37+00:00"
-    },
-    {
-      "name": "sabre/uri",
-      "version": "2.1.2",
-      "source": {
-        "type": "git",
-        "url": "https://github.com/sabre-io/uri.git",
-        "reference": "c260a55cbd2083c03484f56f72fe042fee0c17ed"
-      },
-      "dist": {
-        "type": "zip",
-        "url": "https://api.github.com/repos/sabre-io/uri/zipball/c260a55cbd2083c03484f56f72fe042fee0c17ed",
-        "reference": "c260a55cbd2083c03484f56f72fe042fee0c17ed",
-        "shasum": ""
-      },
-      "require": {
-        "php": ">=7"
-      },
-      "require-dev": {
-        "phpunit/phpunit": "^6"
-      },
-      "type": "library",
-      "autoload": {
-        "files": [
-          "lib/functions.php"
-        ],
-        "psr-4": {
-          "Sabre\\Uri\\": "lib/"
-        }
-      },
-      "notification-url": "https://packagist.org/downloads/",
-      "license": [
-        "BSD-3-Clause"
-      ],
-      "authors": [
-        {
-          "name": "Evert Pot",
-          "email": "me@evertpot.com",
-          "homepage": "http://evertpot.com/",
-          "role": "Developer"
-        }
-      ],
-      "description": "Functions for making sense out of URIs.",
-      "homepage": "http://sabre.io/uri/",
-      "keywords": [
-        "rfc3986",
-        "uri",
-        "url"
-      ],
-      "time": "2019-06-25T05:34:33+00:00"
-    },
-    {
-      "name": "sabre/xml",
-      "version": "2.1.2",
-      "source": {
-        "type": "git",
-        "url": "https://github.com/sabre-io/xml.git",
-        "reference": "e15454e68805e3713271ea58c0b2d6a82dac56b7"
-      },
-      "dist": {
-        "type": "zip",
-        "url": "https://api.github.com/repos/sabre-io/xml/zipball/e15454e68805e3713271ea58c0b2d6a82dac56b7",
-        "reference": "e15454e68805e3713271ea58c0b2d6a82dac56b7",
-        "shasum": ""
-      },
-      "require": {
-        "ext-dom": "*",
-        "ext-xmlreader": "*",
-        "ext-xmlwriter": "*",
-        "lib-libxml": ">=2.6.20",
-        "php": ">=7.0",
-        "sabre/uri": ">=1.0,<3.0.0"
-      },
-      "require-dev": {
-        "phpunit/phpunit": "*"
-      },
-      "type": "library",
-      "autoload": {
-        "psr-4": {
-          "Sabre\\Xml\\": "lib/"
-        },
-        "files": [
-          "lib/Deserializer/functions.php",
-          "lib/Serializer/functions.php"
-        ]
-      },
-      "notification-url": "https://packagist.org/downloads/",
-      "license": [
-        "BSD-3-Clause"
-      ],
-      "authors": [
-        {
-          "name": "Evert Pot",
-          "email": "me@evertpot.com",
-          "homepage": "http://evertpot.com/",
-          "role": "Developer"
-        },
-        {
-          "name": "Markus Staab",
-          "email": "markus.staab@redaxo.de",
-          "role": "Developer"
-        }
-      ],
-      "description": "sabre/xml is an XML library that you may not hate.",
-      "homepage": "https://sabre.io/xml/",
-      "keywords": [
-        "XMLReader",
-        "XMLWriter",
-        "dom",
-        "xml"
-      ],
-      "time": "2019-01-09T13:50:52+00:00"
     },
     {
       "name": "sebastian/code-unit-reverse-lookup",
@@ -4170,16 +4058,16 @@
     },
     {
       "name": "phpmd/phpmd",
-      "version": "2.6.0",
+      "version": "2.6.1",
       "source": {
         "type": "git",
         "url": "https://github.com/phpmd/phpmd.git",
-        "reference": "4e9924b2c157a3eb64395460fcf56b31badc8374"
+        "reference": "7425e155cf22cdd2b4dd3458a7da4cf6c0201562"
       },
       "dist": {
         "type": "zip",
-        "url": "https://api.github.com/repos/phpmd/phpmd/zipball/4e9924b2c157a3eb64395460fcf56b31badc8374",
-        "reference": "4e9924b2c157a3eb64395460fcf56b31badc8374",
+        "url": "https://api.github.com/repos/phpmd/phpmd/zipball/7425e155cf22cdd2b4dd3458a7da4cf6c0201562",
+        "reference": "7425e155cf22cdd2b4dd3458a7da4cf6c0201562",
         "shasum": ""
       },
       "require": {
@@ -4232,7 +4120,7 @@
         "phpmd",
         "pmd"
       ],
-      "time": "2017-01-20T14:41:10+00:00"
+      "time": "2019-07-05T23:07:02+00:00"
     },
     {
       "name": "phpunitgoodpractices/polyfill",

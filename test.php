@@ -6,8 +6,8 @@ use Symfony\Component\Yaml\Yaml;
 
 $cfg = Yaml::parseFile(__DIR__ . '/config.yaml');
 
-$epp1 = new Epp("epp1");
-$epp1->setCredentials($cfg["servers"]["test1"]);
+$epp1 = new Epp("epp1", $cfg["servers"]["test1"]);
+//$epp1->setCredentials($cfg["servers"]["test1"]);
 
 try {
     $epp1->hello();

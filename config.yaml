@@ -4,11 +4,19 @@ servers:
     password: password_exam
     uri: uri_exam
   test1:
-    username: user_test1
-    password: password_test1
-    uri: uri_test1
+    username: DIGITALL-IT-REG
+    password: 05digitall-it19
+    uri: https://epp.pubtest.nic.it/
   test2:
-    username: user_test2
-    password: password_test2
-    uri: uri_test2
+    username: DIGITALL-IT1-REG
+    password: 05digitall-it19
+    uri: https://epp.pubtest.nic.it/
+  deleted1:
+    username: DIGITALL-IT-REG
+    password: 05digitall-it19
+    uri: http://epp-deleted.pubtest.nic.it/
+  deleted2:
+    username: DIGITALL-IT1-REG
+    password: 05digitall-it19
+    uri: http://epp-deleted.pubtest.nic.it/
 mode: test
