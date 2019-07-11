@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<epp xmlns="urn:ietf:params:xml:ns:epp-1.0">
+    <command>
+        <login>
+            <clID>{{ clID }}</clID>
+            <pw>{{ pw }}</pw>
+            {% if newPW is defined %}
+            <newPW>{{ newPW }}</newPW>{% endif %}
+            <options>
+                <version>1.0</version>
+                <lang>en</lang>
+            </options>
+            <svcs>
+                <objURI>urn:ietf:params:xml:ns:contact-1.0</objURI>
+                <objURI>urn:ietf:params:xml:ns:domain-1.0</objURI>
+                <svcExtension>
+                    <extURI>http://www.nic.it/ITNIC-EPP/extepp-2.0</extURI>
+                    <extURI>http://www.nic.it/ITNIC-EPP/extcon-1.0</extURI>
+                    <extURI>http://www.nic.it/ITNIC-EPP/extdom-2.0</extURI>
+                    <extURI>urn:ietf:params:xml:ns:rgp-1.0</extURI>
+                </svcExtension>
+            </svcs>
+        </login>
+    </command>
+</epp>

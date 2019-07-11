@@ -19,4 +19,5 @@ servers:
     username: DIGITALL-IT1-REG
     password: 05digitall-it19
     uri: http://epp-deleted.pubtest.nic.it/
+testpassword: pwtmp1234xx
 mode: test
