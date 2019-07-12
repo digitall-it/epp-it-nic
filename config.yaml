@@ -21,3 +21,15 @@ servers:
     uri: http://epp-deleted.pubtest.nic.it/
 testpassword: pwtmp1234xx
 mode: test
+handleprefix: DGT-TST
+samplecontacts:
+  registrant1:
+    name: Mario Rossi
+  registrant2:
+    name: Luigi Bianchi
+  registrant3:
+    name: John Doe
+  techadmin1:
+    name: Maria Callas
+  techadmin2:
+    name: Pico De Paperis

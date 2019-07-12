@@ -24,6 +24,7 @@ class Epp
     private const RESPONSE_FAILED_AUTH_ERROR = 2200;
     private const RESPONSE_COMPLETED_END_SESSION = 1500;
     private const RESPONSE_FAILED_COMMAND_USE_ERROR = 2002;
+    const RESPONSE_FAILED_SESSION_LIMIT_EXCEEDED = 2502;
     private $client;
     private $tpl;
 //    private $svTRID;
@@ -40,10 +41,10 @@ class Epp
         try {
             $this->log = new Logger('log-' . $name);
             //ErrorHandler::register($this->log);
-            $this->log->pushHandler(new StreamHandler(__DIR__ . '/debug-' . $name . '.log', Logger::DEBUG));
-            $this->log->pushHandler(new StreamHandler(__DIR__ . '/info-' . $name . '.log', Logger::INFO));
-            $this->log->pushHandler(new StreamHandler(__DIR__ . '/warning-' . $name . '.log', Logger::WARNING));
-            $this->log->pushHandler(new StreamHandler(__DIR__ . '/error-' . $name . '.log', Logger::ERROR));
+            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/debug-' . $name . '.log', Logger::DEBUG));
+            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/info-' . $name . '.log', Logger::INFO));
+            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/warning-' . $name . '.log', Logger::WARNING));
+            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/error-' . $name . '.log', Logger::ERROR));
         } catch (Exception $e) {
             die('Cannot instantiate logger:' . $e->getMessage());
         }
@@ -72,14 +73,6 @@ class Epp
         $this->log->info('EPP client destroyed');
     }
 
-    public function set_clTRID($prefix)
-    {
-        $this->clTRID = $prefix . "-" . time() . "-" . substr(md5(mt_rand()), 0, 5);
-        if (strlen($this->clTRID) > 32)
-            $this->clTRID = substr($this->clTRID, -32);
-        return $this->clTRID;
-    }
-
     public function hello(): void
     {
 
@@ -99,7 +92,7 @@ class Epp
      * @param string $xml
      * @return SimpleXMLElement
      */
-    private function send(string $xml): SimpleXMLElement
+    private function send(string $xml, bool $debug = false): SimpleXMLElement
     {
         try {
             /* @var $client Client */
@@ -114,7 +107,7 @@ class Epp
         } catch (GuzzleException $e) {
             throw new RuntimeException('Error during transmission: ' . $e->getMessage());
         }
-
+        if ($debug) echo($res->getBody());
         return simplexml_load_string($res->getBody());
     }
 
@@ -136,7 +129,6 @@ class Epp
     {
         return count($obj) !== 0;
     }
-
 
     /**
      * @param null $newpassword
@@ -175,6 +167,10 @@ class Epp
                 case self::RESPONSE_FAILED_COMMAND_USE_ERROR:
                     $this->log->err('Invalid command.');
                     break;
+                case self::RESPONSE_FAILED_SESSION_LIMIT_EXCEEDED:
+                    $this->log->err('Session limit exceeded, server closing connection. Try again later.');
+                    throw new RuntimeException ('Session limit exceeded, server closing connection. Try again later.');
+                    break;
                 default:
                     throw new RuntimeException('Unhandled return code ' . $code);
                     break;
@@ -211,5 +207,61 @@ class Epp
             $this->log->error("No response to logout");
             throw new RuntimeException('No response to logout');
         }
+    }
+
+    public function contactsCheck($contacts): array
+    {
+        $availability = [];
+
+        $xml = $this->render('contact-check', ['contacts' => $contacts, 'clTRID' => $this->set_clTRID('DGT')]);
+        $response = $this->send($xml);
+        $handles = "";
+        foreach ($contacts as $contact) $handles .= '"' . $contact["handle"] . '", ';
+        $handles = rtrim($handles, ', ');
+        $this->log->info('contact check sent for ' . $handles);
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to contact check: ' . $response->response->result->msg);
+
+            switch ($code) {
+                case self::RESPONSE_COMPLETED_SUCCESS:
+                    $this->log->info('Contact handles checked.');
+                    $ns = $response->getNamespaces(true);
+                    $contacts = $response->response->resData->children($ns['contact'])->chkData->cd;
+                    $logstring = '';
+                    foreach ($contacts as $contact) {
+                        $handle = (string)$contact->id;
+                        $avail = (bool)$contact->id->attributes()->avail;
+                        $availability[$handle] = $avail;
+                        $logstring .= '"' . $handle . '" is ' . ($avail ? '' : 'not ') . 'available, ';
+                    }
+                    $logstring = rtrim($logstring, ', ') . '.';
+
+                    //$this->log->info('Received a response to contact check: ' . $response->response->result->msg);
+                    $this->log->info($logstring);
+
+                    break;
+                case self::RESPONSE_FAILED_COMMAND_USE_ERROR:
+                    $this->log->err('Invalid command.');
+                    break;
+                default:
+                    throw new RuntimeException('Unhandled return code ' . $code);
+                    break;
+            }
+        } else {
+            $this->log->error("No response to logout");
+            throw new RuntimeException('No response to logout');
+        }
+
+        return $availability;
+    }
+
+    public function set_clTRID($prefix)
+    {
+        $this->clTRID = $prefix . "-" . time() . "-" . substr(md5(mt_rand()), 0, 5);
+        if (strlen($this->clTRID) > 32)
+            $this->clTRID = substr($this->clTRID, -32);
+        return $this->clTRID;
     }
 }
