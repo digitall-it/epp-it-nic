@@ -25,11 +25,74 @@ handleprefix: DGT-TST
 samplecontacts:
   registrant1:
     name: Mario Rossi
+    org: Mario Rossi
+    addr:
+      street: Via Moruzzi 1
+      city: Pisa
+      sp: PI
+      pc: 56124
+      cc: IT
+    voice: "+39.050315"
+    voice_x: "2111"
+    fax: "+39.0503152593"
+    email: mario.rossi@esempio.it
+    consentforpublishing: true
+    registrant:
+      nationalitycode: IT
+      entitytype: 1
+      regcode: RSSMRA64C14G702Q
   registrant2:
     name: Luigi Bianchi
+    org: Ditta di Pulizie di Luigi Bianchi
+    addr:
+      street: Via Mariangela 1
+      city: Abbazia di Montecassino
+      sp: FR
+      pc: "03100"
+      cc: IT
+    voice: "+39.07757132111"
+    email: lbianchi@libero.it
+    consentforpublishing: true
+    registrant:
+      nationalitycode: IT
+      entitytype: 2
+      regcode: "04615511211"
   registrant3:
-    name: John Doe
+    name: Mauro Spinavola
+    org: Spinavola Sas
+    addr:
+      street: Via Loreto a Mare 4
+      city: Fiesole
+      sp: FI
+      pc: 50121
+      cc: IT
+    voice: "+39.05544332211"
+    voice_x: 34
+    email: info@spinavolasas.com
+    consentforpublishing: true
+    registrant:
+      nationalitycode: IT
+      entitytype: 2
+      regcode: "01640530562"
   techadmin1:
     name: Maria Callas
+    addr:
+      street: Via Maestro 4
+      city: Napoli
+      sp: NA
+      pc: 80100
+      cc: IT
+    voice: "+39.0813331234"
+    email: mario.rossi@esempio.it
+    consentforpublishing: true
   techadmin2:
     name: Pico De Paperis
+    addr:
+      street: via Topolinia 9
+      city: Milano
+      sp: MI
+      pc: 20100
+      cc: IT
+    voice: "+39.0246125580"
+    email: ppaperis@disney.edu
+    consentforpublishing: true

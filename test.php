@@ -31,12 +31,12 @@ removelogs();
 
 // Test 1: Handshake
 
-$epp1 = new Epp("epp1", $cfg["servers"]["test1"]);
-$epp1->hello();
+$epp = new Epp("epp1", $cfg["servers"]["test1"]);
+$epp->hello();
 
 // Test 2: Autenticazione (tramite l’apertura di una o più sessioni simultanee)
 
-$epp1->login();
+$epp->login();
 
 $epp2 = new Epp("epp2", $cfg["servers"]["test2"]);
 $epp2->hello();
@@ -46,8 +46,8 @@ $epp2->logout();
 // Test 3: Modifica della password
 
 if ($changepassword) {
-    $epp1->logout();
-    $epp1->login($cfg['testpassword']);
+    $epp->logout();
+    $epp->login($cfg['testpassword']);
 }
 
 /******************************************************
@@ -65,13 +65,27 @@ foreach ($samplecontacts as $id => $contact) {
     $samplecontacts[$id]["handle"] = $handle;
 }
 
-$epp1->contactsCheck($samplecontacts);
+$epp->contactsCheck($samplecontacts);
 
 // Test 5: Creazione di tre contatti di tipo registrant
 
+$epp->contactCreate($samplecontacts['registrant1']);
+$epp->contactCreate($samplecontacts['registrant2']);
+$epp->contactCreate($samplecontacts['registrant3']);
+
 // Test 6: Creazione di due contatti di tipo tech/admin
 
+$epp->contactCreate($samplecontacts['techadmin1']);
+$epp->contactCreate($samplecontacts['techadmin2']);
+
 // Test 7: Aggiornamento di una delle proprietà di un contatto
+
+$epp->contactUpdate(
+    [
+        'handle' => $samplecontacts['techadmin2']["handle"],
+        'chg' => ['voice' => "+39.0246125585"]
+    ]
+);
 
 // Test 8: Visualizzazione delle informazioni di un contatto
 
@@ -110,10 +124,10 @@ $epp1->contactsCheck($samplecontacts);
 
 // Test 24: Cancellazione di un contatto
 
-$epp1->logout();
+$epp->logout();
 if ($changepassword) {
-    $epp1->login($cfg["servers"]["test1"]["password"], $cfg['testpassword']); // restore password
-    $epp1->logout();
+    $epp->login($cfg["servers"]["test1"]["password"], $cfg['testpassword']); // restore password
+    $epp->logout();
 }
 
 exit(0);

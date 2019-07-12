@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
+    <command>
+        <update>
+            <contact:update
+                    xmlns:contact="urn:ietf:params:xml:ns:contact-1.0"
+                    xsi:schemaLocation="urn:ietf:params:xml:ns:contact-1.0 contact-1.0.xsd">
+                <contact:id>{{ contact.handle }}</contact:id>
+                {% if contact.add is defined %}
+                    <contact:add>
+                        <contact:status s="{{ contact.add.status }}"/>
+                    </contact:add>
+                {% endif %}
+                {% if contact.chg is defined %}
+                    <contact:chg>
+                        {% if contact.chg.voice is defined %}
+                            <contact:voice {% if contact.chg.voice_x is defined %}
+                            x="{{ contact.chg.voice_x }}"{% endif %}>{{ contact.chg.voice }}</contact:voice>
+                        {% endif %}
+                        {% if contact.chg.fax is defined %}
+                            <contact:fax {% if contact.chg.fax_x is defined %}
+                            x="{{ contact.chg.fax_x }}"{% endif %}>{{ contact.chg.fax }}</contact:fax>
+                        {% endif %}
+                        {% if contact.chg.email is defined %}
+                            <contact:email>{{ contact.chg.email }}</contact:email>{% endif %}
+                        {% if contact.chg.authInfo is defined %}{{ contact.chg.authInfo }}{% endif %}
+                        {% if contact.chg.postalInfo is defined %}
+                            <contact:postalInfo type=" loc
+                    ">
+                                <contact:name>{{ contact.chg.postalinfo.name }}</contact:name>
+                                {% if contact.chg.postalInfo.org is defined %}
+                                    <contact:org>{{ contact.chg.postalinfo.org }}</contact:org>{% endif %}
+                                {% if contact.chg.postalInfo.addr is defined %}
+                                    <contact:addr>
+                                        {% if contact.chg.postalInfo.addr.street is defined %}
+                                            <contact:street>{{ contact.chg.postalinfo.addr.street }}</contact:street>{% endif %}
+                                        {% if contact.chg.postalInfo.addr.city is defined %}
+                                            <contact:city>{{ contact.chg.postalinfo.addr.city }}</contact:city>{% endif %}
+                                        {% if contact.chg.postalInfo.addr.sp is defined %}
+                                            <contact:sp>{{ contact.chg.postalinfo.addr.sp }}</contact:sp>{% endif %}
+                                        {% if contact.chg.postalInfo.addr.pc is defined %}
+                                            <contact:pc>{{ contact.chg.postalinfo.addr.pc }}</contact:pc>{% endif %}
+                                        {% if contact.chg.postalInfo.addr.cc is defined %}
+                                            <contact:cc>{{ contact.chg.postalinfo.addr.cc }}</contact:cc>{% endif %}
+                                    </contact:addr>
+                                {% endif %}
+                            </contact:postalInfo>
+                        {% endif %}
+                    </contact:chg>
+                {% endif %}
+                {% if contact.rem is defined %}
+                    <contact:rem>
+                        <contact:status s="{{ contact.rem.status }}"/>
+                    </contact:rem>
+                {% endif %}
+            </contact:update>
+        </update>
+        <clTRID>{{ clTRID }}</clTRID>
+    </command>
+</epp>
