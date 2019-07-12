@@ -21,7 +21,13 @@ servers:
     uri: http://epp-deleted.pubtest.nic.it/
 testpassword: pwtmp1234xx
 mode: test
-handleprefix: DGT-TST
+prefix: DGT-TST
+
+sampledomains:
+  domain1:
+    name: domain1.it
+  domain2:
+    name: domain2.it
 samplecontacts:
   registrant1:
     name: Mario Rossi

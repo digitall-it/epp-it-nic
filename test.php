@@ -61,7 +61,7 @@ $samplecontacts = $cfg["samplecontacts"];
 $handles = [];
 
 foreach ($samplecontacts as $id => $contact) {
-    $handle = $cfg['handleprefix'] . '-' . substr(md5(mt_rand()), 0, 5);
+    $handle = $cfg['prefix'] . '-' . substr(md5(mt_rand()), 0, 5);
     $samplecontacts[$id]["handle"] = $handle;
 }
 
@@ -89,40 +89,117 @@ $epp->contactUpdate(
 
 // Test 8: Visualizzazione delle informazioni di un contatto
 
+$epp->contactGetInfo($samplecontacts['registrant2']['handle']);
+
 /************************************************************
  * Sezione 3: operazioni per la gestione dei nomi a dominio *
  ************************************************************/
 // Test 9: Verifica della disponibilità di due nomi a dominio
 
+$sampledomains = $cfg["sampledomains"];
+
+foreach ($sampledomains as $id => $domain) {
+    $name = strtolower($cfg['prefix'] . '-' . substr(md5(mt_rand()), 0, 5) . '-' . $domain['name']);
+    $sampledomains[$id]["name"] = $name;
+}
+$epp->domainsCheck($sampledomains);
+
 // Test 10: Creazione di due nomi a dominio
+
+//@todo $epp->domainCreate($sampledomains['domain1']);
+//@todo $epp->domainCreate($sampledomains['domain2']);
+
 
 // Test 11: Aggiunta di un vincolo ad un nome a dominio per impedirne il trasferimento
 
+/* @todo
+ * $epp->domainUpdate(
+ * [
+ * 'domain' => $sampledomains['domain1'],
+ * 'blah' => 'blah'
+ * ]
+ * );
+ */
+
 // Test 12: Visualizzazione delle informazioni di un nome a dominio
 
+//@todo $epp->domainGetInfo($sampledomains['domain1']);
+
 // Test 13: Aggiornamento della lista dei nameserver associati a un nome a dominio
-
+/* @todo
+ * $epp->domainUpdateNameservers(
+ * [
+ * 'domain' => $sampledomains['domain1'],
+ * 'blah' => 'blah'
+ * ]
+ * );
+ */
 // Test 14: Modifica del Registrante di un nome a dominio
-
-// Test 15: Richiesta di modifica del Registrar di un nome a dominio
-
-// Test 16: Nuova richiesta di modifica del Registrar di un nome a dominio
-
-// Test 17: Approvazione della richiesta di modifica del Registrar ed eliminazione del messaggio di richiesta dalla coda di polling
-
-// Test 18: Modifica del codice AuthInfo di un nome a dominio
-
-// Test 19: Richiesta di modifica del Registrante contestuale ad una modifica del Registrar per un nome a dominio
-
-// Test 20: Approvazione della richiesta di modifica del Registrante e del Registrar
-
-// Test 21: Aggiunta di un vincolo a un nome a dominio per impedirne la modifica
-
+/* @todo
+ * $epp->domainUpdateRegistrant(
+ * [
+ * 'domain' => $sampledomains['domain1'],
+ * 'registrant' => $samplecontacts['registrant3'],
+ * 'blah' => 'blah'
+ * ]
+ * );
+ * /*
+ * // Test 15: Richiesta di modifica del Registrar di un nome a dominio
+ *
+ * // @todo ???
+ *
+ * // Test 16: Nuova richiesta di modifica del Registrar di un nome a dominio
+ *
+ * // @todo ???
+ *
+ * // Test 17: Approvazione della richiesta di modifica del Registrar ed eliminazione del messaggio di richiesta dalla coda di polling
+ *
+ * // @todo ???
+ *
+ * // @todo Test 18: Modifica del codice AuthInfo di un nome a dominio
+ * /* @todo
+ * $epp->domainUpdateAuthInfo(
+ * [
+ * 'domain' => $sampledomains['domain1'],
+ * 'authInfo' => $newAuthInfo,
+ * ]
+ * );
+ * /*
+ * // Test 19: Richiesta di modifica del Registrante contestuale ad una modifica del Registrar per un nome a dominio
+ * /* @todo
+ * $epp->domainUpdateRegistrantAndRegistrar(
+ * [
+ * 'domain' => $sampledomains['domain1'],
+ * 'registrant' => $samplecontacts['registrant3'],
+ * 'registrar' => 'blah'
+ * ]
+ * );
+ * /*
+ * // Test 20: Approvazione della richiesta di modifica del Registrante e del Registrar
+ *
+ * // @todo ???
+ *
+ * // Test 21: Aggiunta di un vincolo a un nome a dominio per impedirne la modifica
+ * /* @todo
+ * $epp->domainUpdate(
+ * [
+ * 'domain' => $sampledomains['domain1'],
+ * 'blah' => 'blah'
+ * ]
+ * );
+ */
 // Test 22: Cancellazione di un nome a dominio
+
+//@todo $epp->domainDelete($sampledomains['domain1']['domain']);
 
 // Test 23: Ripristino di un nome a dominio cancellato
 
+//@todo $epp_deleted->domainRecover($sampledomains['domain1']['domain']);
+
+
 // Test 24: Cancellazione di un contatto
+
+//@todo $epp->contactDelete($samplecontacts['registrant1']['handle']);
 
 $epp->logout();
 if ($changepassword) {

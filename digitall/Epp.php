@@ -28,6 +28,8 @@ class Epp
     const RESPONSE_FAILED_SYNTAX_ERROR = 2001;
     const RESPONSE_FAILED_REQUIRED_PARAMETER_MISSING = 2003;
     const RESPONSE_FAILED_PARAMETER_VALUE_RANGE = 2004;
+    const RESPONSE_COMPLETED_AUTH_ERROR = 2201;
+    const RESPONSE_COMPLETED_OBJECT_DOES_NOT_EXIST = 2303;
     private $client;
     private $tpl;
 //    private $svTRID;
@@ -190,6 +192,11 @@ class Epp
     private function handleReturnCode($msg, int $code, $reason = null): void
     {
         switch ($code) {
+            case self::RESPONSE_COMPLETED_AUTH_ERROR:
+                $this->log->warn($msg . ' - Authorization error.');
+                $this->logReason($msg, $reason);
+                //throw new RuntimeException ($msg . ' - Wrong credentials.' . $reason);
+                break;
             case self::RESPONSE_FAILED_AUTH_ERROR:
                 $this->log->err($msg . ' - Wrong credentials.');
                 $this->logReason($msg, $reason);
@@ -229,6 +236,8 @@ class Epp
                 $this->logReason($msg, $reason);
                 $this->logout(); // Prevent session limit
                 throw new RuntimeException($msg . ' - Required parameter missing.' . $reason);
+                break;
+            case self::RESPONSE_COMPLETED_OBJECT_DOES_NOT_EXIST:
                 break;
             default:
                 $this->log->err($msg . ' - Unhandled return code ' . $code);
@@ -333,5 +342,86 @@ class Epp
             throw new RuntimeException('No response to contact update for "' . $contact['handle'] . '"');
         }
 
+    }
+
+    public function contactGetInfo($handle)
+    {
+        $xml = $this->render('contact-info', ['handle' => $handle]);
+
+        $response = $this->send($xml);
+
+        $this->log->info('contact info sent for "' . $handle . '"');
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to contact info: ' . $response->response->result->msg);
+            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+            $this->handleReturnCode('Contact info', (int)$code, $reason);
+
+            $return = [
+                'code' => (int)$code
+            ]; // all non blocking codes are returned: success, auth_error, object does not exist
+
+
+            if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
+                $ns = $response->getNamespaces(true);
+                $return['contact'] = $response->response->resData->children($ns['contact'])->infData;
+            };
+
+            return $return;
+
+        }
+
+        $this->log->error('No response to contact info for "' . $handle . '"');
+        throw new RuntimeException('No response to contact update for "' . $handle . '"');
+    }
+
+    public function domainsCheck($domains)
+    {
+        $availability = [];
+
+        $xml = $this->render('domain-check', ['domains' => $domains]);
+        $response = $this->send($xml);
+        $names = "";
+        foreach ($domains as $domain) $names .= '"' . $domain["name"] . '", ';
+        $names = rtrim($names, ', ');
+        $this->log->info('domain check sent for ' . $names);
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to domain check: ' . $response->response->result->msg);
+
+            $this->handleReturnCode('domain check', (int)$code);
+            if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
+                $ns = $response->getNamespaces(true);
+                $domains = $response->response->resData->children($ns['domain'])->chkData->cd;
+                $logstring = '';
+                foreach ($domains as $domain) {
+                    $name = (string)$domain->name;
+                    $avail = (bool)$domain->name->attributes()->avail;
+
+                    $return =
+                        ['avail' => $avail];
+                    $logstring .= '"' . $name . '" is ' . ($avail ? '' : 'not ') . 'available, ';
+
+                    if (!$avail) {
+                        $reason = $domain->reason;
+                        $return['reason'] = $reason;
+                        $logstring = rtrim($logstring, ', ') . '(reason is:' . $reason . '), ';
+                    }
+
+                    $availability[$name] = $return;
+
+
+                }
+                $logstring = rtrim($logstring, ', ') . '.';
+                $this->log->info($logstring);
+            }
+        } else {
+            $this->log->error("No response to logout");
+            throw new RuntimeException('No response to logout');
+        }
+
+        return $availability;
     }
 }
