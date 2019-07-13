@@ -252,17 +252,6 @@ class Epp
     }
 
     /**
-     * Logs a secondary reason that comes with certain error codes
-     *
-     * @param $msg string Description of the message sent to the server
-     * @param $reason string Secondary text to log
-     */
-    private function logReason($msg, $reason)
-    {
-        if ($reason !== null) $this->log->err($msg . ' - Reason:' . $reason);
-    }
-
-    /**
      * Logs formatted messages regarding common communication problems
      *
      * @param  $msg string Description of the message sent to the server
@@ -328,6 +317,17 @@ class Epp
     }
 
     /**
+     * Logs a secondary reason that comes with certain error codes
+     *
+     * @param $msg string Description of the message sent to the server
+     * @param $reason string Secondary text to log
+     */
+    private function logReason($msg, $reason)
+    {
+        if ($reason !== null) $this->log->err($msg . ' - Reason:' . $reason);
+    }
+
+    /**
      * Logs out from the server
      */
     public function logout(): void
@@ -373,8 +373,9 @@ class Epp
             $this->handleReturnCode('Contact check', (int)$code);
             if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
                 $ns = $response->getNamespaces(true);
-                /* @var $contacts_checked SimpleXMLElement */
-                /* @var $response SimpleXMLElement */
+                /**
+                 * @var $contacts_checked SimpleXMLElement Returned contacts structure with availability data
+                 */
                 $contacts_checked = $response->response->resData->children($ns['contact'])->chkData->cd;
                 $logstring = '';
                 foreach ($contacts_checked as $contact) {
@@ -419,6 +420,7 @@ class Epp
     }
 
     /**
+     * Updates a contact
      *
      * @param array $contact
      */
@@ -445,10 +447,12 @@ class Epp
     }
 
     /**
-     * @param $handle
-     * @return array
+     * Gets contact info
+     *
+     * @param string $handle
+     * @return array Structured contact data (if exists) with response codes
      */
-    public function contactGetInfo($handle)
+    public function contactGetInfo(string $handle)
     {
         $xml = $this->render('contact-info', ['handle' => $handle]);
 
@@ -481,10 +485,12 @@ class Epp
     }
 
     /**
+     * Checks multiple domains for availability
+     *
      * @param $domains
-     * @return array
+     * @return array Availability data about contacts
      */
-    public function domainsCheck($domains)
+    public function domainsCheck($domains): array
     {
         $availability = [];
 
@@ -534,7 +540,9 @@ class Epp
     }
 
     /**
-     * @param array $domain
+     * Creates a domain
+     *
+     * @param array $domain Structured data of the domain
      */
     public function domainCreate(array $domain)
     {
@@ -552,6 +560,30 @@ class Epp
         } else {
             $this->log->error('No response to domain create for "' . $domain['handle'] . '"');
             throw new RuntimeException('No response to domain create for "' . $domain['handle'] . '"');
+        }
+    }
+
+    /**
+     * Updates a domain
+     *
+     * @param array $domain
+     */
+    public function domainUpdate(array $domain)
+    {
+        $xml = $this->render('domain-update', ['domain' => $domain]);
+        $response = $this->send($xml);
+
+        $this->log->info('domain update sent for "' . $domain['name'] . '"');
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to domain update: ' . $response->response->result->msg);
+            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+            $this->handleReturnCode('domain update', (int)$code, $reason);
+
+        } else {
+            $this->log->error('No response to domain update for "' . $domain['handle'] . '"');
+            throw new RuntimeException('No response to domain update for "' . $domain['handle'] . '"');
         }
     }
 }

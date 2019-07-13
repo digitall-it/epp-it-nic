@@ -120,14 +120,14 @@ $epp->domainCreate($sampledomains['domain2']);
 
 // Test 11: Aggiunta di un vincolo ad un nome a dominio per impedirne il trasferimento
 
-/* @todo
- * $epp->domainUpdate(
- * [
- * 'domain' => $sampledomains['domain1'],
- * 'blah' => 'blah'
- * ]
- * );
- */
+
+$epp->domainUpdate(
+    [
+        'name' => $sampledomains['domain1']['name'],
+        'add' => ['status' => "clientTransferProhibited"]
+    ]
+);
+
 
 // Test 12: Visualizzazione delle informazioni di un nome a dominio
 

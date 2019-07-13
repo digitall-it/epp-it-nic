@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
+    <command>
+        <update>
+            <domain:update
+                    xmlns:domain="urn:ietf:params:xml:ns:domain-1.0"
+                    xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0 domain-1.0.xsd">
+                <domain:name>{{ domain.name }}</domain:name>
+                {% if domain.add is defined %}
+                    <domain:add>
+                        {% if domain.add.ns is defined %}
+                            <domain:ns>
+                                {% for ns in domain.add.ns %}
+                                    <domain:hostAttr>
+                                        <domain:hostName>{{ ns.name }}</domain:hostName>
+                                        {% if ns.ipv4 is defined %}
+                                            <domain:hostAddr ip="v4">{{ ns.ipv4 }}</domain:hostAddr>
+                                        {% endif %}
+                                        {% if ns.ipv6 is defined %}
+                                            <domain:hostAddr ip="v6">{{ ns.ipv6 }}</domain:hostAddr>
+                                        {% endif %}
+                                    </domain:hostAttr>
+                                {% endfor %}
+                            </domain:ns>
+                        {% endif %}
+                        {% if domain.add.contact is defined %}
+                            {% for contact in domain.add.contact %}
+                                <domain:contact type="{{ contact.type }}">{{ contact.handle }}</domain:contact>
+                            {% endfor %}
+                        {% endif %}
+                        {% if domain.add.status is defined %}
+                            <domain:status s="{{ domain.add.status }}"></domain:status>
+                        {% endif %}
+                    </domain:add>
+                {% endif %}
+                {% if domain.chg is defined %}
+                    <domain:chg>
+                        {% if domain.chg.registrant is defined %}
+                            <domain:registrant>mr002</domain:registrant>
+                        {% endif %}
+                        {% if domain.chg.authInfo is defined %}
+                            <domain:authInfo>
+                                <domain:pw>NEW2BARfoo</domain:pw>
+                            </domain:authInfo>
+                        {% endif %}
+                    </domain:chg>
+                {% endif %}
+                {% if domain.rem is defined %}
+                    <domain:add>
+                        {% if domain.rem.ns is defined %}
+                            <domain:ns>
+                                {% for ns in domain.rem.ns %}
+                                    <domain:hostAttr>
+                                        <domain:hostName>{{ ns.name }}</domain:hostName>
+                                        {% if ns.ipv4 is defined %}
+                                            <domain:hostAddr ip="v4">{{ ns.ipv4 }}</domain:hostAddr>
+                                        {% endif %}
+                                        {% if ns.ipv6 is defined %}
+                                            <domain:hostAddr ip="v6">{{ ns.ipv6 }}</domain:hostAddr>
+                                        {% endif %}
+                                    </domain:hostAttr>
+                                {% endfor %}
+                            </domain:ns>
+                        {% endif %}
+                        {% if domain.rem.contact is defined %}
+                            {% for contact in domain.rem.contact %}
+                                <domain:contact type="{{ contact.type }}">{{ contact.handle }}</domain:contact>
+                            {% endfor %}
+                        {% endif %}
+                        {% if domain.rem.status is defined %}
+                            <domain:status s="{{ domain.rem.status }}"></domain:status>
+                        {% endif %}
+                    </domain:add>
+                {% endif %}
+            </domain:update>
+        </update>
+        <clTRID>{{ clTRID }}</clTRID>
+    </command>
+</epp>
