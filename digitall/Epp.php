@@ -20,25 +20,64 @@ use Twig\Loader\FilesystemLoader;
  */
 class Epp
 {
+    /**
+     * Result code of a response with a successful completed operation
+     */
     private const RESPONSE_COMPLETED_SUCCESS = 1000;
+    /**
+     * Result code of a response with an authorization error
+     */
     private const RESPONSE_FAILED_AUTH_ERROR = 2200;
+    /**
+     * Result code of a response from a successful logout request
+     */
     private const RESPONSE_COMPLETED_END_SESSION = 1500;
+    /**
+     * Result code of a response to a misconfigured command
+     */
     private const RESPONSE_FAILED_COMMAND_USE_ERROR = 2002;
+    /**
+     * Result code of a response with a login request to a server in a too short period of time
+     */
     const RESPONSE_FAILED_SESSION_LIMIT_EXCEEDED = 2502;
+    /**
+     * Result code of a response to a command with a syntax error
+     */
     const RESPONSE_FAILED_SYNTAX_ERROR = 2001;
+    /**
+     * Result code of a response to a command with a required parameter missing
+     */
     const RESPONSE_FAILED_REQUIRED_PARAMETER_MISSING = 2003;
+    /**
+     * Result code of a response to a command with a parameter outside the value range
+     */
     const RESPONSE_FAILED_PARAMETER_VALUE_RANGE = 2004;
+    /**
+     * Result code of a response to a command to change a contact or domain that does not belong to the Registrar
+     */
     const RESPONSE_COMPLETED_AUTH_ERROR = 2201;
+    /**
+     * Result code of a response to a request to use a contact or domain that does not exist on the server
+     */
     const RESPONSE_COMPLETED_OBJECT_DOES_NOT_EXIST = 2303;
+    /**
+     * @var Client GuzzleHTTP client
+     */
     private $client;
+    /**
+     * @var Environment Twig template system
+     */
     private $tpl;
-//    private $svTRID;
+    /**
+     * @var string|null Client transaction ID
+     */
     private $clTRID;
 
     /**
-     * Epp constructor.
-     * @param $name
-     * @param $credentials
+     * Class constructor
+     *
+     * @param $name string Name of the Epp instance for the logs
+     * @param $credentials array username, password and server
      */
     public function __construct($name, $credentials)
     {
@@ -71,13 +110,16 @@ class Epp
     }
 
     /**
-     *
+     * Class destructor
      */
     public function __destruct()
     {
         $this->log->info('EPP client destroyed');
     }
 
+    /**
+     * Transmit an hello message, helps to mantain connection and receive server parameters
+     */
     public function hello(): void
     {
 
@@ -94,8 +136,10 @@ class Epp
     }
 
     /**
-     * @param string $xml
-     * @return SimpleXMLElement
+     * Sends a message to the server, receives and parses the response to a structure
+     *
+     * @param string $xml Message to transmit
+     * @return SimpleXMLElement Structure to return
      */
     private function send(string $xml, bool $debug = false): SimpleXMLElement
     {
@@ -116,6 +160,13 @@ class Epp
         return simplexml_load_string($res->getBody());
     }
 
+    /**
+     * Renders a message from a template using the given parameters
+     *
+     * @param $template string Name of the template to use for rendering
+     * @param array $vars Parameters to fill the template with
+     * @return string XML Code generated
+     */
     public function render($template, array $vars = []): string
     {
         $vars['clTRID'] = $this->set_clTRID('DGT');
@@ -132,6 +183,12 @@ class Epp
         return $xml;
     }
 
+    /**
+     * Generate a client transaction ID unique to each transmission, to send with the message
+     *
+     * @param $prefix string Text to attach at the start of the string
+     * @return string Generated text
+     */
     public function set_clTRID($prefix)
     {
         $this->clTRID = $prefix . "-" . time() . "-" . substr(md5(mt_rand()), 0, 5);
@@ -140,14 +197,24 @@ class Epp
         return $this->clTRID;
     }
 
+    /**
+     * Helper function that checks if a node exists in an XML structure
+     *
+     * @param $obj SimpleXMLElement XML node to check
+     * @return bool Result of the check
+     */
     public function nodeExists($obj): bool
     {
         return (is_countable($obj)) && (count($obj) !== 0);
     }
 
     /**
-     * @param null $newpassword
-     * @param null $testpassword
+     * Login message
+     * Can also change the password with an optional second parameter
+     * Can use a specific password  instead of the configured one if given the optional third parameter
+     *
+     * @param string $newpassword New password to use
+     * @param string $testpassword Current password to use, overrides config
      */
     public function login($newpassword = null, $testpassword = null): void
     {
@@ -184,11 +251,24 @@ class Epp
         }
     }
 
+    /**
+     * Logs a secondary reason that comes with certain error codes
+     *
+     * @param $msg string Description of the message sent to the server
+     * @param $reason string Secondary text to log
+     */
     private function logReason($msg, $reason)
     {
         if ($reason !== null) $this->log->err($msg . ' - Reason:' . $reason);
     }
 
+    /**
+     * Logs formatted messages regarding common communication problems
+     *
+     * @param  $msg string Description of the message sent to the server
+     * @param int $code Error code
+     * @param string|null $reason Optional secondary message that explains more
+     */
     private function handleReturnCode($msg, int $code, $reason = null): void
     {
         switch ($code) {
@@ -247,6 +327,9 @@ class Epp
         }
     }
 
+    /**
+     * Logs out from the server
+     */
     public function logout(): void
     {
         $xml = $this->render('logout', ['clTRID' => $this->clTRID]);
@@ -266,6 +349,12 @@ class Epp
         }
     }
 
+    /**
+     * Check availability of a list of contacts
+     *
+     * @param $contacts array List of contact handles to check
+     * @return array Result of the check as an array with an availability boolean for each contact handle
+     */
     public function contactsCheck($contacts): array
     {
         $availability = [];
@@ -284,9 +373,11 @@ class Epp
             $this->handleReturnCode('Contact check', (int)$code);
             if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
                 $ns = $response->getNamespaces(true);
-                $contacts = $response->response->resData->children($ns['contact'])->chkData->cd;
+                /* @var $contacts_checked SimpleXMLElement */
+                /* @var $response SimpleXMLElement */
+                $contacts_checked = $response->response->resData->children($ns['contact'])->chkData->cd;
                 $logstring = '';
-                foreach ($contacts as $contact) {
+                foreach ($contacts_checked as $contact) {
                     $handle = (string)$contact->id;
                     $avail = (bool)$contact->id->attributes()->avail;
                     $availability[$handle] = $avail;
@@ -303,7 +394,12 @@ class Epp
         return $availability;
     }
 
-    public function contactCreate(array $contact)
+    /**
+     * Creates a contact
+     *
+     * @param array $contact Details of the contact
+     */
+    public function contactCreate(array $contact): void
     {
         $xml = $this->render('contact-create', ['contact' => $contact]);
         $response = $this->send($xml);
@@ -322,7 +418,11 @@ class Epp
         }
     }
 
-    public function contactUpdate(array $contact)
+    /**
+     *
+     * @param array $contact
+     */
+    public function contactUpdate(array $contact): void
     {
 
         $xml = $this->render('contact-update', ['contact' => $contact]);
@@ -344,6 +444,10 @@ class Epp
 
     }
 
+    /**
+     * @param $handle
+     * @return array
+     */
     public function contactGetInfo($handle)
     {
         $xml = $this->render('contact-info', ['handle' => $handle]);
@@ -376,6 +480,10 @@ class Epp
         throw new RuntimeException('No response to contact update for "' . $handle . '"');
     }
 
+    /**
+     * @param $domains
+     * @return array
+     */
     public function domainsCheck($domains)
     {
         $availability = [];
@@ -423,5 +531,27 @@ class Epp
         }
 
         return $availability;
+    }
+
+    /**
+     * @param array $domain
+     */
+    public function domainCreate(array $domain)
+    {
+        $xml = $this->render('domain-create', ['domain' => $domain]);
+        $response = $this->send($xml);
+
+        $this->log->info('domain create sent for "' . $domain['name'] . '"');
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to domain create: ' . $response->response->result->msg);
+            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+            $this->handleReturnCode('domain create', (int)$code, $reason);
+
+        } else {
+            $this->log->error('No response to domain create for "' . $domain['handle'] . '"');
+            throw new RuntimeException('No response to domain create for "' . $domain['handle'] . '"');
+        }
     }
 }

@@ -22,12 +22,36 @@ servers:
 testpassword: pwtmp1234xx
 mode: test
 prefix: DGT-TST
-
 sampledomains:
   domain1:
     name: domain1.it
+    period: 1
+    authInfo: password-1
+    ns:
+      primary:
+        name: ns1.domain1.it
+        ipv4: 193.205.245.70
+      secondary:
+        name: ns2.domain1.it
+        ipv4: 193.205.245.77
+        ipv6: "2a00:d40:1:1::5"
+    contacts:
+      registrant: registrant1
+      admin: registrant1
+      tech: techadmin2
   domain2:
     name: domain2.it
+    period: 1
+    authInfo: password-2
+    ns:
+      primary:
+        name: ns1.otherdomain.it
+      secondary:
+        name: ns2.otherdomain1.it
+    contacts:
+      registrant: registrant3
+      admin: techadmin2
+      tech: techadmin2
 samplecontacts:
   registrant1:
     name: Mario Rossi

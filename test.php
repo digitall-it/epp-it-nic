@@ -98,17 +98,25 @@ $epp->contactGetInfo($samplecontacts['registrant2']['handle']);
 
 $sampledomains = $cfg["sampledomains"];
 
-foreach ($sampledomains as $id => $domain) {
-    $name = strtolower($cfg['prefix'] . '-' . substr(md5(mt_rand()), 0, 5) . '-' . $domain['name']);
-    $sampledomains[$id]["name"] = $name;
+foreach ($sampledomains as $dm_id => $domain) {
+    $name = strtolower($cfg['prefix'] . '-' . substr(md5(mt_rand()), 0, 3) . '-' . $domain['name']);
+
+    foreach ($domain['ns'] as $ns_id => $ns) {
+        $ns_name = str_replace($domain['name'], $name, $ns['name']);
+        $sampledomains[$dm_id]['ns'][$ns_id]['name'] = $ns_name;
+    }
+
+    foreach ($domain['contacts'] as $ct_id => $contact) {
+        $sampledomains[$dm_id]['contacts'][$ct_id] = $samplecontacts[$contact]['handle'];
+    }
+    $sampledomains[$dm_id]["name"] = $name;
 }
 $epp->domainsCheck($sampledomains);
 
 // Test 10: Creazione di due nomi a dominio
 
-//@todo $epp->domainCreate($sampledomains['domain1']);
-//@todo $epp->domainCreate($sampledomains['domain2']);
-
+$epp->domainCreate($sampledomains['domain1']);
+$epp->domainCreate($sampledomains['domain2']);
 
 // Test 11: Aggiunta di un vincolo ad un nome a dominio per impedirne il trasferimento
 

@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
+    <command>
+        <create>
+            <domain:create
+                    xmlns:domain="urn:ietf:params:xml:ns:domain-1.0"
+                    xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0
+       domain-1.0.xsd">
+                <domain:name>{{ domain.name }}</domain:name>
+                <domain:period unit="y">{{ domain.period }}</domain:period>
+                <domain:ns>
+                    {% for ns in domain.ns %}
+                        <domain:hostAttr>
+                            <domain:hostName>{{ ns.name }}</domain:hostName>
+                            {% if ns.ipv4 is defined %}
+                                <domain:hostAddr ip="v4">{{ ns.ipv4 }}</domain:hostAddr>
+                            {% endif %}
+                            {% if ns.ipv6 is defined %}
+                                <domain:hostAddr ip="v6">{{ ns.ipv6 }}</domain:hostAddr>
+                            {% endif %}
+                        </domain:hostAttr>
+                    {% endfor %}
+                </domain:ns>
+                <domain:registrant>{{ domain.contacts.registrant }}</domain:registrant>
+                <domain:contact type="admin">{{ domain.contacts.admin }}</domain:contact>
+                <domain:contact type="tech">{{ domain.contacts.tech }}</domain:contact>
+                <domain:authInfo>
+                    <domain:pw>{{ domain.authInfo }}</domain:pw>
+                </domain:authInfo>
+            </domain:create>
+        </create>
+        <clTRID>{{ clTRID }}</clTRID>
+    </command>
+</epp>
