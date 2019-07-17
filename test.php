@@ -2,6 +2,7 @@
 require_once __DIR__ . '/vendor/autoload.php';
 
 use digitall\Epp;
+use digitall\Plesk;
 use Symfony\Component\Yaml\Yaml;
 
 $cfg = Yaml::parseFile(__DIR__ . '/config.yaml');
@@ -10,7 +11,7 @@ $changepassword = false;
 
 function removelogs()
 {
-    $logpath = __DIR__ . '/digitall/logs/';
+    $logpath = __DIR__ . '/digitall/logs/client/';
     $dirh = opendir($logpath);
     while (($file = readdir($dirh)) !== false) {
         if (in_array($file, array('.', '..'))) continue;
@@ -21,7 +22,61 @@ function removelogs()
     closedir($dirh);
 }
 
+function removetraces()
+{
+    $logpath = __DIR__ . '/digitall/logs/epp/';
+    $dirh = opendir($logpath);
+    while (($file = readdir($dirh)) !== false) {
+        if (in_array($file, ['.', '..'])) continue;
+        $file_parts = pathinfo($file);
+        if ($file_parts['extension'] === 'xml') unlink($logpath . $file);
+    }
+    closedir($dirh);
+}
+
+// $this->_protocol://$this->_host:$this->_port/enterprise/control/agent.php"
+
 removelogs();
+removetraces();
+
+try {
+    $plesk = new Plesk($cfg['provisioner']['plesk']);
+} catch (Exception $e) {
+    die('Cannot instantiate client:' . $e->getMessage());
+}
+$nictestdomain_id = (int)$plesk->getDomain('nictest.it')->id;
+$plesk->createAlias('test123.it', $nictestdomain_id);
+//$plesk->createAlias($cfg['provisioner']['plesk']['testdomain'],'nictestalias.it');
+//$plesk->changeNS('nictest.it'$ns);
+//$plesk->deleteAlias('nictestalias.it');
+
+
+//$plesk = new \PleskX\Api\Client($cfg['servers']['provisioner']['plesk']['uri']);
+//$plesk->setSecretKey($cfg['servers']['provisioner']['plesk']['key']);
+//$plesk->siteAlias()->create([]);
+//$x = $plesk->site()->get('name', 'nictest.it');
+//$x  =$plesk->site()->getAll();
+
+//echo $x;
+//var_dump($x);
+
+
+//die();
+
+//$plesk = new Plesk($cfg['servers']['provisioner']['plesk']);
+//$customer = $plesk->getCustomer($cfg["servers"]["plesk"]['customer']);
+//$sampledomains = $cfg["sampledomains"];
+//$domain = $sampledomains['domain1'];
+//$plesk->createDomain($domain, $customer);
+//$y=$plesk->getDomains();
+//print_r($y);
+//die();
+//$x=$plesk->getDomainInfo(4);
+//print_r($x);
+
+
+//die();
+///-------------
 
 //$epp2->login();
 
@@ -38,6 +93,11 @@ $epp->hello();
 
 $epp->login();
 
+$epp->pollCheck();
+
+$epp->logout();
+//die();
+// --------
 $epp2 = new Epp("epp2", $cfg["servers"]["test2"]);
 $epp2->hello();
 $epp2->login();
@@ -120,7 +180,6 @@ $epp->domainCreate($sampledomains['domain2']);
 
 // Test 11: Aggiunta di un vincolo ad un nome a dominio per impedirne il trasferimento
 
-
 $epp->domainUpdate(
     [
         'name' => $sampledomains['domain1']['name'],
@@ -131,18 +190,25 @@ $epp->domainUpdate(
 
 // Test 12: Visualizzazione delle informazioni di un nome a dominio
 
-//@todo $epp->domainGetInfo($sampledomains['domain1']);
+$epp->domainGetInfo($sampledomains['domain1']['name']);
 
 // Test 13: Aggiornamento della lista dei nameserver associati a un nome a dominio
-/* @todo
- * $epp->domainUpdateNameservers(
- * [
- * 'domain' => $sampledomains['domain1'],
- * 'blah' => 'blah'
- * ]
- * );
- */
+
+$epp->domainUpdate(
+    [
+        'name' => $sampledomains['domain1']['name'],
+        'rem' => [
+            'ns' => [
+                'ns3' => [
+                    'name' => $sampledomains['domain1']['ns']['tertiary']['name']
+                ]
+            ]
+        ]
+    ]
+);
+
 // Test 14: Modifica del Registrante di un nome a dominio
+
 /* @todo
  * $epp->domainUpdateRegistrant(
  * [
@@ -153,17 +219,11 @@ $epp->domainUpdate(
  * );
  * /*
  * // Test 15: Richiesta di modifica del Registrar di un nome a dominio
- *
  * // @todo ???
- *
  * // Test 16: Nuova richiesta di modifica del Registrar di un nome a dominio
- *
  * // @todo ???
- *
  * // Test 17: Approvazione della richiesta di modifica del Registrar ed eliminazione del messaggio di richiesta dalla coda di polling
- *
  * // @todo ???
- *
  * // @todo Test 18: Modifica del codice AuthInfo di un nome a dominio
  * /* @todo
  * $epp->domainUpdateAuthInfo(
@@ -184,9 +244,7 @@ $epp->domainUpdate(
  * );
  * /*
  * // Test 20: Approvazione della richiesta di modifica del Registrante e del Registrar
- *
  * // @todo ???
- *
  * // Test 21: Aggiunta di un vincolo a un nome a dominio per impedirne la modifica
  * /* @todo
  * $epp->domainUpdate(
