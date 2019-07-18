@@ -336,10 +336,10 @@ class Epp
             case self::RESPONSE_COMPLETED_OBJECT_DOES_NOT_EXIST:
                 break;
             case self::RESPONSE_COMPLETED_QUEUE_HAS_NO_MESSAGES:
-                $this->log->info('Message deleted from server - The queue has no messages');
+                $this->log->info('The queue has no messages');
                 break;
             case self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES:
-                $this->log->info('Message deleted from server - There are still messages in queue');
+                $this->log->info('There are still messages in queue');
                 break;
             default:
                 $this->log->err($msg . ' - Unhandled return code ' . $code);

@@ -9,7 +9,7 @@ $cfg = Yaml::parseFile(__DIR__ . '/config.yaml');
 
 $changepassword = false;
 
-function removelogs()
+function remove_logs_client()
 {
     $logpath = __DIR__ . '/digitall/logs/client/';
     $dirh = opendir($logpath);
@@ -22,7 +22,7 @@ function removelogs()
     closedir($dirh);
 }
 
-function removetraces()
+function remove_logs_epp()
 {
     $logpath = __DIR__ . '/digitall/logs/epp/';
     $dirh = opendir($logpath);
@@ -34,7 +34,7 @@ function removetraces()
     closedir($dirh);
 }
 
-function removequeue()
+function remove_logs_queue()
 {
     $logpath = __DIR__ . '/digitall/logs/queue/';
     $dirh = opendir($logpath);
@@ -46,12 +46,36 @@ function removequeue()
     closedir($dirh);
 }
 
-removelogs();
-removetraces();
-removequeue();
-
+function remove_logs_plesk()
+{
+    $logpath = __DIR__ . '/digitall/logs/plesk/';
+    $dirh = opendir($logpath);
+    while (($file = readdir($dirh)) !== false) {
+        if (in_array($file, ['.', '..'])) continue;
+        $file_parts = pathinfo($file);
+        if ($file_parts['extension'] === 'xml') unlink($logpath . $file);
+    }
+    closedir($dirh);
+}
 
 $mode = $cfg['mode'];
+
+if ($mode === 'test') {
+    $epp = new Epp("epp1", $cfg["servers"]["test1"]);
+    // Clean the polling queue
+    $epp->login();
+    $epp->pollCheck();
+    unset($epp);
+}
+
+
+remove_logs_client();
+remove_logs_epp();
+remove_logs_queue();
+remove_logs_plesk();
+
+//die();
+
 
 try {
     $plesk = new Plesk($cfg['provisioner']['plesk']);
@@ -71,8 +95,6 @@ $epp->hello();
 // Test 2: Authentication (by opening one or more simultaneous sessions)
 
 $epp->login();
-//$epp->pollCheck();die();
-
 
 $epp2 = new Epp("epp2", $cfg["servers"]["test2"]);
 $epp2->login();
@@ -183,11 +205,10 @@ if ($mode === 'test') {
 $epp->domainCreate($sampledomains['domain1']);
 $epp->domainCreate($sampledomains['domain2']);
 
-if ($mode === 'test') {
+if ($mode === 'te1st') {
 
     // Queue polling for DNS check results
-    sleep(5);
-    $epp->pollCheck();
+    $epp->pollCheck(true);
 
     // Verify DNS check results
 
@@ -225,17 +246,20 @@ if ($mode === 'test') {
 $epp->domainUpdate(
     [
         'name' => $sampledomains['domain1']['name'],
+        'add' => [
+            'ns' => [
+                'ns3' => $sampledomains['domain1']['ns_test']['tertiary']
+            ]
+        ],
         'rem' => [
             'ns' => [
-                'ns3' => [
-                    'name' => $sampledomains['domain1']['ns_test']['tertiary']['name']
-                ]
+                'ns2' => $sampledomains['domain1']['ns']['secondary']
             ]
         ]
     ]
 );
 
-if ($mode === 'test') {
+if ($mode === 'te1st') {
 
     // Reset status to pending
 
@@ -243,7 +267,7 @@ if ($mode === 'test') {
 
     // Queue polling for DNS check results
 
-    $epp->pollCheck();
+    $epp->pollCheck(true);
 
     // Verify DNS check results
 
