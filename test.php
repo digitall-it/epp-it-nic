@@ -14,7 +14,7 @@ function removelogs()
     $logpath = __DIR__ . '/digitall/logs/client/';
     $dirh = opendir($logpath);
     while (($file = readdir($dirh)) !== false) {
-        if (in_array($file, array('.', '..'))) continue;
+        if (in_array($file, ['.', '..'])) continue;
 
         $file_parts = pathinfo($file);
         if ($file_parts['extension'] === 'log') unlink($logpath . $file);
@@ -34,87 +34,63 @@ function removetraces()
     closedir($dirh);
 }
 
-// $this->_protocol://$this->_host:$this->_port/enterprise/control/agent.php"
+function removequeue()
+{
+    $logpath = __DIR__ . '/digitall/logs/queue/';
+    $dirh = opendir($logpath);
+    while (($file = readdir($dirh)) !== false) {
+        if (in_array($file, ['.', '..'])) continue;
+        $file_parts = pathinfo($file);
+        if ($file_parts['extension'] === 'txt') unlink($logpath . $file);
+    }
+    closedir($dirh);
+}
 
 removelogs();
 removetraces();
+removequeue();
+
+
+$mode = $cfg['mode'];
 
 try {
     $plesk = new Plesk($cfg['provisioner']['plesk']);
 } catch (Exception $e) {
     die('Cannot instantiate client:' . $e->getMessage());
 }
-$nictestdomain_id = (int)$plesk->getDomain('nictest.it')->id;
-$plesk->createAlias('test123.it', $nictestdomain_id);
-//$plesk->createAlias($cfg['provisioner']['plesk']['testdomain'],'nictestalias.it');
-//$plesk->changeNS('nictest.it'$ns);
-//$plesk->deleteAlias('nictestalias.it');
 
-
-//$plesk = new \PleskX\Api\Client($cfg['servers']['provisioner']['plesk']['uri']);
-//$plesk->setSecretKey($cfg['servers']['provisioner']['plesk']['key']);
-//$plesk->siteAlias()->create([]);
-//$x = $plesk->site()->get('name', 'nictest.it');
-//$x  =$plesk->site()->getAll();
-
-//echo $x;
-//var_dump($x);
-
-
-//die();
-
-//$plesk = new Plesk($cfg['servers']['provisioner']['plesk']);
-//$customer = $plesk->getCustomer($cfg["servers"]["plesk"]['customer']);
-//$sampledomains = $cfg["sampledomains"];
-//$domain = $sampledomains['domain1'];
-//$plesk->createDomain($domain, $customer);
-//$y=$plesk->getDomains();
-//print_r($y);
-//die();
-//$x=$plesk->getDomainInfo(4);
-//print_r($x);
-
-
-//die();
-///-------------
-
-//$epp2->login();
-
-/**************************************
- *  Sezione 1: operazioni di sessione *
- **************************************/
+/**********************************
+ *  Section 1: session operations *
+ **********************************/
 
 // Test 1: Handshake
 
 $epp = new Epp("epp1", $cfg["servers"]["test1"]);
 $epp->hello();
 
-// Test 2: Autenticazione (tramite l’apertura di una o più sessioni simultanee)
+// Test 2: Authentication (by opening one or more simultaneous sessions)
 
 $epp->login();
+//$epp->pollCheck();die();
 
-$epp->pollCheck();
 
-$epp->logout();
-//die();
-// --------
 $epp2 = new Epp("epp2", $cfg["servers"]["test2"]);
-$epp2->hello();
 $epp2->login();
 $epp2->logout();
 
-// Test 3: Modifica della password
+// Test 3: Change password
 
-if ($changepassword) {
+if ($mode === 'exam') {
+    // skip in test env
     $epp->logout();
     $epp->login($cfg['testpassword']);
 }
 
-/******************************************************
- * Sezione 2: operazioni per la gestione dei contatti *
- ******************************************************/
+/***********************************************
+ * Section 2: operations for managing contacts *
+ ***********************************************/
 
-// Test 4: Controllo della disponibilità degli identificatori dei contatti da utilizzare durante il test di accreditamento
+// Test 4: Check the availability of contact identifiers to be used during the accreditation test
 
 $samplecontacts = $cfg["samplecontacts"];
 
@@ -124,21 +100,20 @@ foreach ($samplecontacts as $id => $contact) {
     $handle = $cfg['prefix'] . '-' . substr(md5(mt_rand()), 0, 5);
     $samplecontacts[$id]["handle"] = $handle;
 }
-
 $epp->contactsCheck($samplecontacts);
 
-// Test 5: Creazione di tre contatti di tipo registrant
+// Test 5: Creation of three registrant contacts
 
 $epp->contactCreate($samplecontacts['registrant1']);
 $epp->contactCreate($samplecontacts['registrant2']);
 $epp->contactCreate($samplecontacts['registrant3']);
 
-// Test 6: Creazione di due contatti di tipo tech/admin
+// Test 6: Creation of two tech / admin contacts
 
 $epp->contactCreate($samplecontacts['techadmin1']);
 $epp->contactCreate($samplecontacts['techadmin2']);
 
-// Test 7: Aggiornamento di una delle proprietà di un contatto
+// Test 7: Updating one of the properties of a contact
 
 $epp->contactUpdate(
     [
@@ -147,19 +122,20 @@ $epp->contactUpdate(
     ]
 );
 
-// Test 8: Visualizzazione delle informazioni di un contatto
+// Test 8: Display of contact information
 
 $epp->contactGetInfo($samplecontacts['registrant2']['handle']);
 
 /************************************************************
- * Sezione 3: operazioni per la gestione dei nomi a dominio *
+ * Section 3: operations for the management of domain names *
  ************************************************************/
-// Test 9: Verifica della disponibilità di due nomi a dominio
+
+// Test 9: Verification of the availability of two domain names
 
 $sampledomains = $cfg["sampledomains"];
 
 foreach ($sampledomains as $dm_id => $domain) {
-    $name = strtolower($cfg['prefix'] . '-' . substr(md5(mt_rand()), 0, 3) . '-' . $domain['name']);
+    $name = strtolower($cfg['prefix'] . '-' . substr(md5(mt_rand()), 0, 5) . '-' . $domain['name']);
 
     foreach ($domain['ns'] as $ns_id => $ns) {
         $ns_name = str_replace($domain['name'], $name, $ns['name']);
@@ -170,15 +146,57 @@ foreach ($sampledomains as $dm_id => $domain) {
         $sampledomains[$dm_id]['contacts'][$ct_id] = $samplecontacts[$contact]['handle'];
     }
     $sampledomains[$dm_id]["name"] = $name;
+    if ($mode === 'test') $sampledomains[$dm_id]['dns_check_status'] = 'pending';
 }
-$epp->domainsCheck($sampledomains);
 
-// Test 10: Creazione di due nomi a dominio
+$r = $epp->domainsCheck($sampledomains);
+
+// Test 10: Creation of two domain names
+
+if ($mode === 'test') {
+
+    // Provision domain aliases to pass DNS check in test env
+
+    try {
+        $plesk = new Plesk($cfg['provisioner']['plesk']);
+    } catch (Exception $e) {
+        die('Cannot instantiate Plesk client:' . $e->getMessage());
+    };
+    $testdomain_primary =
+        [
+            'id' => (int)$plesk->getDomain($cfg['provisioner']['plesk']['domain_primary'])->id,
+            'name' => $cfg['provisioner']['plesk']['domain_primary']
+        ];
+    $testdomain_secondary =
+        [
+            'id' => (int)$plesk->getDomain($cfg['provisioner']['plesk']['domain_secondary'])->id,
+            'name' => $cfg['provisioner']['plesk']['domain_secondary']
+        ];
+
+    $plesk->createAlias($sampledomains['domain1']['name'], $testdomain_primary);
+    $plesk->createAlias($sampledomains['domain2']['name'], $testdomain_primary);
+
+    // End of Plesk provisioning code
+
+}
 
 $epp->domainCreate($sampledomains['domain1']);
 $epp->domainCreate($sampledomains['domain2']);
 
-// Test 11: Aggiunta di un vincolo ad un nome a dominio per impedirne il trasferimento
+if ($mode === 'test') {
+
+    // Queue polling for DNS check results
+    sleep(5);
+    $epp->pollCheck();
+
+    // Verify DNS check results
+
+    if ($sampledomains['domain1']['dns_check_status'] !== 'ok') die($sampledomains['domain1']['name'] . ' DNS check not passed.');
+    if ($sampledomains['domain2']['dns_check_status'] !== 'ok') die($sampledomains['domain2']['name'] . ' DNS check not passed.');
+
+}
+
+// Test 11: Adding a constraint to a domain name to prevent transfer
 
 $epp->domainUpdate(
     [
@@ -187,12 +205,22 @@ $epp->domainUpdate(
     ]
 );
 
-
-// Test 12: Visualizzazione delle informazioni di un nome a dominio
+// Test 12: Displaying the information of a domain name
 
 $epp->domainGetInfo($sampledomains['domain1']['name']);
 
-// Test 13: Aggiornamento della lista dei nameserver associati a un nome a dominio
+// Test 13: Updating the list of nameservers associated with a domain name
+
+if ($mode === 'test') {
+
+    // Provision domain aliases to pass DNS check
+
+    $plesk->deleteAlias($sampledomains['domain1']['name']);
+    $plesk->createAlias($sampledomains['domain1']['name'], $testdomain_secondary);
+
+    // End of Plesk provisioning code
+
+}
 
 $epp->domainUpdate(
     [
@@ -200,14 +228,32 @@ $epp->domainUpdate(
         'rem' => [
             'ns' => [
                 'ns3' => [
-                    'name' => $sampledomains['domain1']['ns']['tertiary']['name']
+                    'name' => $sampledomains['domain1']['ns_test']['tertiary']['name']
                 ]
             ]
         ]
     ]
 );
 
-// Test 14: Modifica del Registrante di un nome a dominio
+if ($mode === 'test') {
+
+    // Reset status to pending
+
+    $sampledomains['domain1']['dns_check_status'] = 'pending';
+
+    // Queue polling for DNS check results
+
+    $epp->pollCheck();
+
+    // Verify DNS check results
+
+    if ($sampledomains['domain1']['dns_check_status'] !== 'ok') die($sampledomains['domain1']['name'] . ' DNS check not passed.');
+    if ($sampledomains['domain2']['dns_check_status'] !== 'ok') die($sampledomains['domain2']['name'] . ' DNS check not passed.');
+
+}
+
+
+// Test 14: Change of the Registrant of a domain name
 
 /* @todo
  * $epp->domainUpdateRegistrant(
@@ -222,7 +268,8 @@ $epp->domainUpdate(
  * // @todo ???
  * // Test 16: Nuova richiesta di modifica del Registrar di un nome a dominio
  * // @todo ???
- * // Test 17: Approvazione della richiesta di modifica del Registrar ed eliminazione del messaggio di richiesta dalla coda di polling
+ * // Test 17: Approvazione della richiesta di modifica del Registrar ed eliminazione del messaggio di richiesta dalla
+ * coda di polling
  * // @todo ???
  * // @todo Test 18: Modifica del codice AuthInfo di un nome a dominio
  * /* @todo
@@ -254,23 +301,29 @@ $epp->domainUpdate(
  * ]
  * );
  */
-// Test 22: Cancellazione di un nome a dominio
+// Test 22: Cancellation of a domain name
 
 //@todo $epp->domainDelete($sampledomains['domain1']['domain']);
 
-// Test 23: Ripristino di un nome a dominio cancellato
+// Test 23: Restoring a deleted domain name
 
 //@todo $epp_deleted->domainRecover($sampledomains['domain1']['domain']);
 
-
-// Test 24: Cancellazione di un contatto
+// Test 24: Cancellation of a contact
 
 //@todo $epp->contactDelete($samplecontacts['registrant1']['handle']);
 
 $epp->logout();
+/*
 if ($changepassword) {
     $epp->login($cfg["servers"]["test1"]["password"], $cfg['testpassword']); // restore password
     $epp->logout();
+}
+*/
+
+if ($mode === 'test') {
+    $plesk->deleteAlias($sampledomains['domain1']);
+    $plesk->deleteAlias($sampledomains['domain2']);
 }
 
 exit(0);

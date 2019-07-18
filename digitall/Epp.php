@@ -61,6 +61,18 @@ class Epp
      */
     const RESPONSE_COMPLETED_OBJECT_DOES_NOT_EXIST = 2303;
     /**
+     *
+     */
+    const RESPONSE_FAILED_DATA_MANAGEMENT_POLICY_VIOLATION = 2308;
+    /**
+     *
+     */
+    const RESPONSE_COMPLETED_QUEUE_HAS_NO_MESSAGES = 1300;
+    /**
+     *
+     */
+    const RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES = 1301;
+    /**
      * @var Client GuzzleHTTP client
      */
     private $client;
@@ -76,7 +88,7 @@ class Epp
     /**
      * Class constructor
      *
-     * @param $name string Name of the Epp instance for the logs
+     * @param $name        string Name of the Epp instance for the logs
      * @param $credentials array username, password and server
      */
     public function __construct($name, $credentials)
@@ -85,10 +97,10 @@ class Epp
         try {
             $this->log = new Logger('log-' . $name);
             //ErrorHandler::register($this->log);
-            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/debug-' . $name . '.log', Logger::DEBUG));
-            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/info-' . $name . '.log', Logger::INFO));
-            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/warning-' . $name . '.log', Logger::WARNING));
-            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/error-' . $name . '.log', Logger::ERROR));
+            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/client/debug-' . $name . '.log', Logger::DEBUG));
+            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/client/info-' . $name . '.log', Logger::INFO));
+            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/client/warning-' . $name . '.log', Logger::WARNING));
+            $this->log->pushHandler(new StreamHandler(__DIR__ . '/logs/client/error-' . $name . '.log', Logger::ERROR));
         } catch (Exception $e) {
             die('Cannot instantiate logger:' . $e->getMessage());
         }
@@ -101,8 +113,8 @@ class Epp
             'cookies' => true
         ]);
 
-        $tpl_loader = new FilesystemLoader(__DIR__ . '/xml');
-        $tpl_cfg = array();
+        $tpl_loader = new FilesystemLoader(__DIR__ . '/tpl/epp');
+        $tpl_cfg = [];
         //$tpl_cfg['cache'] = __DIR__ . '/cache';
         $this->tpl = new Environment($tpl_loader, $tpl_cfg);
 
@@ -139,14 +151,17 @@ class Epp
      * Sends a message to the server, receives and parses the response to a structure
      *
      * @param string $xml Message to transmit
+     *
      * @return SimpleXMLElement Structure to return
      */
     private function send(string $xml, bool $debug = false): SimpleXMLElement
     {
+        $this->log->debug('Sending... ' . preg_replace('!\s+!', ' ', $xml));
+        file_put_contents(__dir__ . '/logs/epp/' . microtime(true) . '-send.xml', $xml);
         try {
             /* @var $client Client */
             if (isset($xml)) {
-                $res = $this->client->request('POST', '',
+                $res = $this->client->request('POST', '/',
                     [
                         'body' => $xml
                     ]);
@@ -156,15 +171,20 @@ class Epp
         } catch (GuzzleException $e) {
             throw new RuntimeException('Error during transmission: ' . $e->getMessage());
         }
-        if ($debug) echo($res->getBody());
-        return simplexml_load_string($res->getBody());
+        $xml_received = $res->getBody();
+        file_put_contents(__dir__ . '/logs/epp/' . microtime(true) . '-received.xml', $xml_received);
+        if ($debug) echo($xml_received);
+        $this->log->debug('Receiving... ' . preg_replace('!\s+!', ' ', $xml_received));
+
+        return simplexml_load_string($xml_received);
     }
 
     /**
      * Renders a message from a template using the given parameters
      *
-     * @param $template string Name of the template to use for rendering
-     * @param array $vars Parameters to fill the template with
+     * @param       $template string Name of the template to use for rendering
+     * @param array $vars     Parameters to fill the template with
+     *
      * @return string XML Code generated
      */
     public function render($template, array $vars = []): string
@@ -187,6 +207,7 @@ class Epp
      * Generate a client transaction ID unique to each transmission, to send with the message
      *
      * @param $prefix string Text to attach at the start of the string
+     *
      * @return string Generated text
      */
     public function set_clTRID($prefix)
@@ -201,6 +222,7 @@ class Epp
      * Helper function that checks if a node exists in an XML structure
      *
      * @param $obj SimpleXMLElement XML node to check
+     *
      * @return bool Result of the check
      */
     public function nodeExists($obj): bool
@@ -213,7 +235,7 @@ class Epp
      * Can also change the password with an optional second parameter
      * Can use a specific password  instead of the configured one if given the optional third parameter
      *
-     * @param string $newpassword New password to use
+     * @param string $newpassword  New password to use
      * @param string $testpassword Current password to use, overrides config
      */
     public function login($newpassword = null, $testpassword = null): void
@@ -254,8 +276,8 @@ class Epp
     /**
      * Logs formatted messages regarding common communication problems
      *
-     * @param  $msg string Description of the message sent to the server
-     * @param int $code Error code
+     * @param             $msg    string Description of the message sent to the server
+     * @param int         $code   Error code
      * @param string|null $reason Optional secondary message that explains more
      */
     private function handleReturnCode($msg, int $code, $reason = null): void
@@ -288,6 +310,11 @@ class Epp
                 $this->logout(); // Prevent session limit
                 throw new RuntimeException($msg . ' - Command use error.' . $reason);
                 break;
+            case self::RESPONSE_FAILED_DATA_MANAGEMENT_POLICY_VIOLATION:
+                $this->log->err($msg . ' - Data management policy violation.');
+                $this->logReason($msg, $reason);
+                $this->logout(); // Prevent session limit
+                throw new RuntimeException($msg . ' - Data management policy violation.' . $reason);
             case self::RESPONSE_FAILED_SYNTAX_ERROR:
                 $this->log->err($msg . ' - Syntax error.');
                 $this->logReason($msg, $reason);
@@ -308,8 +335,15 @@ class Epp
                 break;
             case self::RESPONSE_COMPLETED_OBJECT_DOES_NOT_EXIST:
                 break;
+            case self::RESPONSE_COMPLETED_QUEUE_HAS_NO_MESSAGES:
+                $this->log->info('Message deleted from server - The queue has no messages');
+                break;
+            case self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES:
+                $this->log->info('Message deleted from server - There are still messages in queue');
+                break;
             default:
                 $this->log->err($msg . ' - Unhandled return code ' . $code);
+                $this->logReason($msg, $reason);
                 $this->logout(); // Prevent session limit
                 throw new RuntimeException($msg . ' - Unhandled return code ' . $code . '.' . $reason);
                 break;
@@ -319,7 +353,7 @@ class Epp
     /**
      * Logs a secondary reason that comes with certain error codes
      *
-     * @param $msg string Description of the message sent to the server
+     * @param $msg    string Description of the message sent to the server
      * @param $reason string Secondary text to log
      */
     private function logReason($msg, $reason)
@@ -353,6 +387,7 @@ class Epp
      * Check availability of a list of contacts
      *
      * @param $contacts array List of contact handles to check
+     *
      * @return array Result of the check as an array with an availability boolean for each contact handle
      */
     public function contactsCheck($contacts): array
@@ -422,7 +457,7 @@ class Epp
     /**
      * Updates a contact
      *
-     * @param array $contact
+     * @param array $contact Details of the contact
      */
     public function contactUpdate(array $contact): void
     {
@@ -450,6 +485,7 @@ class Epp
      * Gets contact info
      *
      * @param string $handle
+     *
      * @return array Structured contact data (if exists) with response codes
      */
     public function contactGetInfo(string $handle)
@@ -488,6 +524,7 @@ class Epp
      * Checks multiple domains for availability
      *
      * @param $domains
+     *
      * @return array Availability data about contacts
      */
     public function domainsCheck($domains): array
@@ -566,7 +603,7 @@ class Epp
     /**
      * Updates a domain
      *
-     * @param array $domain
+     * @param array $domain Details of the domain to update
      */
     public function domainUpdate(array $domain)
     {
@@ -585,5 +622,154 @@ class Epp
             $this->log->error('No response to domain update for "' . $domain['handle'] . '"');
             throw new RuntimeException('No response to domain update for "' . $domain['handle'] . '"');
         }
+    }
+
+    /**
+     * @param string      $name
+     * @param string|null $authInfo
+     *
+     * @return array
+     */
+    public function domainGetInfo(string $name, string $authInfo = null)
+    {
+        $vars = ['name' => $name];
+        if ($authInfo !== null) $vars['authInfo'] = $authInfo;
+
+        $xml = $this->render('domain-info', $vars);
+
+        $response = $this->send($xml);
+
+        $this->log->info('domain info request sent for "' . $name . '"');
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to domain info request: ' . $response->response->result->msg);
+            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+            $this->handleReturnCode('domain info', (int)$code, $reason);
+
+            $return = [
+                'code' => (int)$code
+            ]; // all non blocking codes are returned: success, auth_error, object does not exist
+
+
+            if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
+                $ns = $response->getNamespaces(true);
+                $return['domain'] = $response->response->resData->children($ns['domain'])->infData;
+            };
+
+            return $return;
+
+        }
+
+        $this->log->error('No response to domain info for "' . $name . '"');
+        throw new RuntimeException('No response to domain update for "' . $name . '"');
+
+    }
+
+    /**
+     * Check polling queue
+     *
+     * @param bool $force
+     */
+    public function pollCheck(bool $force = false): void
+    {
+        $i = 0;
+        do {
+            $i++;
+            if ($force) {
+                do {
+                    sleep(5);
+                    $result = $this->pollRequest();
+                } while ($result['code'] != self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES);
+            } else {
+                $result = $this->pollRequest();
+
+            }
+
+            //$count = $result["count"];
+            if ($result['code'] == self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES) {
+                $contents = print_r($result, true);
+
+                file_put_contents(__dir__ . '/logs/queue/' . microtime(true) . '.txt', $contents);
+
+                $this->pollAck($result['id']);
+            }
+
+        } while ($i < 30 && $result['code'] == self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES);
+        if ($i >= 30) die('EPP Poll check caught an infinite loop.');
+
+    }
+
+    /**
+     * @return array
+     */
+    private function pollRequest()
+    {
+        $xml = $this->render('poll-request');
+        $response = $this->send($xml);
+
+        $this->log->info('Poll req request sent');
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to poll req request: ' . $response->response->result->msg);
+            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+            $this->handleReturnCode('poll req', (int)$code, $reason);
+
+            $return = [
+                'code' => (int)$code
+            ]; // all non blocking codes are returned: success, auth_error, object does not exist
+
+            if (self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES == $code) {
+                //$ns = $response->getNamespaces(true);
+                //$return['domain'] = $response->response->resData->children($ns['domain'])->infData;
+                $return['msg'] = (string)$response->response->msgQ->msg;
+                $return['count'] = (int)$response->response->msgQ->attributes()->count;
+                $return['id'] = (string)$response->response->msgQ->attributes()->id;
+                $return['date'] = (string)$response->response->msgQ->qDate;
+
+                //$return['extension'] = $response->response->extension
+                $this->log->info('Message queued on ' . $return['date'] . ' with ID ' . $return['id'] . ' "' . $return['msg'] . '"');
+            } else if (self::RESPONSE_COMPLETED_QUEUE_HAS_NO_MESSAGES) {
+                $this->log->info('No messages in queue');
+            };
+
+            return $return;
+        }
+
+        $this->log->error('No response to poll req request');
+        throw new RuntimeException('No response to poll req request');
+
+    }
+
+    /**
+     * @param string $id
+     *
+     * @return array
+     */
+    private function pollAck(string $id)
+    {
+        $xml = $this->render('poll-ack', ['id' => $id]);
+        $response = $this->send($xml);
+
+        $this->log->info('Poll ack request sent');
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to poll ack request: ' . $response->response->result->msg);
+            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+            $this->handleReturnCode('poll ack', (int)$code, $reason);
+
+            $return = [
+                'code' => (int)$code /* all non blocking codes are returned: success, auth_error, object does not exist */
+            ];
+
+
+            return $return;
+        }
+
+        $this->log->error('No response to poll ack request');
+        throw new RuntimeException('No response to poll ack request');
+
     }
 }

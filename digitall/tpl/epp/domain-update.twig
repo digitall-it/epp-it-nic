@@ -48,18 +48,12 @@
                     </domain:chg>
                 {% endif %}
                 {% if domain.rem is defined %}
-                    <domain:add>
+                    <domain:rem>
                         {% if domain.rem.ns is defined %}
                             <domain:ns>
                                 {% for ns in domain.rem.ns %}
                                     <domain:hostAttr>
                                         <domain:hostName>{{ ns.name }}</domain:hostName>
-                                        {% if ns.ipv4 is defined %}
-                                            <domain:hostAddr ip="v4">{{ ns.ipv4 }}</domain:hostAddr>
-                                        {% endif %}
-                                        {% if ns.ipv6 is defined %}
-                                            <domain:hostAddr ip="v6">{{ ns.ipv6 }}</domain:hostAddr>
-                                        {% endif %}
                                     </domain:hostAttr>
                                 {% endfor %}
                             </domain:ns>
@@ -72,7 +66,7 @@
                         {% if domain.rem.status is defined %}
                             <domain:status s="{{ domain.rem.status }}"></domain:status>
                         {% endif %}
-                    </domain:add>
+                    </domain:rem>
                 {% endif %}
             </domain:update>
         </update>
