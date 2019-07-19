@@ -38,11 +38,11 @@
                 {% if domain.chg is defined %}
                     <domain:chg>
                         {% if domain.chg.registrant is defined %}
-                            <domain:registrant>mr002</domain:registrant>
+                            <domain:registrant>{{ domain.chg.registrant }}</domain:registrant>
                         {% endif %}
                         {% if domain.chg.authInfo is defined %}
                             <domain:authInfo>
-                                <domain:pw>NEW2BARfoo</domain:pw>
+                                <domain:pw>{{ domain.chg.authInfo }}</domain:pw>
                             </domain:authInfo>
                         {% endif %}
                     </domain:chg>

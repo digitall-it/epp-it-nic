@@ -192,14 +192,14 @@ echo "OK\n";
 echo "Test 11 - Adding a constraint to a domain name to prevent transfer:";
 $epp->domainUpdate(
     [
-        'name' => $sampledomains['domain1']['name'],
+        'name' => $sampledomains['domain2']['name'],
         'add' => ['status' => "clientTransferProhibited"]
     ]
 );
 echo "OK\n";
 
 echo "Test 12 - Displaying the information of a domain name:";
-$epp->domainGetInfo($sampledomains['domain1']['name']);
+$epp->domainGetInfo($sampledomains['domain2']['name']);
 echo "OK\n";
 
 echo "Test 13 - Updating the list of nameservers associated with a domain name";
@@ -428,15 +428,15 @@ echo "Test 18 - Modification of the AuthInfo code of a domain name:";
 </epp>
 */
 
-/*
-$newAuthInfo = [];
-$epp->domainUpdateAuthInfo(
+
+$epp->domainUpdate(
     [
-        'domain' => $sampledomains['domain1'],
-        'authInfo' => $newAuthInfo,
+        'name' => $sampledomains['domain2']['name'],
+        'chg' => [
+            'authInfo' => ($sampledomains['domain2']['authInfo'] . '-chg')
+        ]
     ]
 );
-*/
 
 echo "OK\n";
 
@@ -530,13 +530,15 @@ echo "Test 20 - Approval of the request to change the Registrant and the Registr
 echo "OK\n";
 
 echo "Test 21 - Adding a constraint to a domain name to prevent it from being modified:";
-/*
+
 $epp->domainUpdate(
     [
-        'domain' => $sampledomains['domain1'],
-        'blah' => 'blah'
+        'name' => $sampledomains['domain2']['name'],
+        'add' => [
+            'status' => "clientUpdateProhibited"
+        ]
     ]
-);*/
+);
 
 /*
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>

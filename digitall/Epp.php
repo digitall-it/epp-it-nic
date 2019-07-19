@@ -227,7 +227,7 @@ class Epp
      */
     public function nodeExists($obj): bool
     {
-        return (is_countable($obj)) && (count($obj) !== 0);
+        return (@is_countable($obj)) && (@count($obj) !== 0);
     }
 
     /**
@@ -683,7 +683,6 @@ class Epp
                 } while ($result['code'] != self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES);
             } else {
                 $result = $this->pollRequest();
-
             }
 
             //$count = $result["count"];
@@ -728,6 +727,13 @@ class Epp
                 $return['id'] = (string)$response->response->msgQ->attributes()->id;
                 $return['date'] = (string)$response->response->msgQ->qDate;
 
+                if ($this->nodeExists($response->response->extension->children('http://www.nic.it/ITNIC-EPP/extdom-2.0'))) {
+                    $extdom = $response->response->extension->children('http://www.nic.it/ITNIC-EPP/extdom-2.0');
+                    $return['dnsErrorMsgData'] = $extdom->dnsErrorMsgData;
+                    $log_dns = $return['dnsErrorMsgData']->asXML();
+                    file_put_contents(__dir__ . '/logs/queue/' . microtime(true) . '-dns.txt', $log_dns);
+                }
+
                 //$return['extension'] = $response->response->extension
                 $this->log->info('Message queued on ' . $return['date'] . ' with ID ' . $return['id'] . ' "' . $return['msg'] . '"');
             } else if (self::RESPONSE_COMPLETED_QUEUE_HAS_NO_MESSAGES) {
@@ -771,5 +777,47 @@ class Epp
         $this->log->error('No response to poll ack request');
         throw new RuntimeException('No response to poll ack request');
 
+    }
+
+    /**
+     * @param $domain
+     */
+    public function domainRecover($domain)
+    {
+    }
+
+    /**
+     * @param $handle
+     */
+    public function contactDelete($handle)
+    {
+    }
+
+    /**
+     * @param array $array
+     */
+    public function domainUpdateRegistrant(array $array)
+    {
+    }
+
+    /**
+     * @param array $array
+     */
+    public function domainUpdateAuthInfo(array $array)
+    {
+    }
+
+    /**
+     * @param array $array
+     */
+    public function domainUpdateRegistrantAndRegistrar(array $array)
+    {
+    }
+
+    /**
+     * @param $domain
+     */
+    public function domainDelete($domain)
+    {
     }
 }
