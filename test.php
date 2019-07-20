@@ -73,7 +73,7 @@ remove_logs_plesk();
 //die();
 
 try {
-    $plesk = new Plesk($cfg['provisioner']['plesk']);
+    $plesk = new Plesk($cfg['provisioner']['plesk']); // Plesk client used to provision domain aliases used to pass DNS check
 } catch (Exception $e) {
     die('Cannot instantiate client:' . $e->getMessage());
 }
@@ -91,7 +91,7 @@ echo "Test 2 - Authentication (by opening one or more simultaneous sessions):";
 $epp->login();
 $epp2 = new Epp("epp2", $cfg["servers"]["test2"]);
 $epp2->login();
-$epp2->logout();
+//$epp2->logout();
 echo "OK\n";
 
 echo "Test 3 - Change password:";
@@ -100,6 +100,7 @@ if ($mode === 'exam') {
     $epp->logout();
     $epp->login($cfg['testpassword']);
 }
+
 echo "OK\n";
 
 /***********************************************
@@ -158,13 +159,11 @@ foreach ($sampledomains as $dm_id => $domain) {
     $sampledomains[$dm_id]["name"] = $name;
     if ($mode === 'test') $sampledomains[$dm_id]['dns_check_status'] = 'pending';
 }
-$r = $epp->domainsCheck($sampledomains);
-//$epp->logout();var_dump($sampledomains['domain1']);die();
+$epp->domainsCheck($sampledomains);
 echo "OK\n";
 
 echo "Test 10 - Creation of two domain names:";
-if ($mode === 'test') {
-// Provision domain aliases to pass DNS check in test env
+if ($mode === 'test') { // Provision domain aliases to pass DNS check in test env
     try {
         $plesk = new Plesk($cfg['provisioner']['plesk']);
     } catch (Exception $e) {
@@ -182,11 +181,9 @@ if ($mode === 'test') {
         ];
     $plesk->createAlias($sampledomains['domain1']['name'], $testdomain_primary);
     $plesk->createAlias($sampledomains['domain2']['name'], $testdomain_primary);
-// End of Plesk provisioning code
 }
 $epp->domainCreate($sampledomains['domain1']);
 $epp->domainCreate($sampledomains['domain2']);
-
 echo "OK\n";
 
 echo "Test 11 - Adding a constraint to a domain name to prevent transfer:";
@@ -203,11 +200,9 @@ $epp->domainGetInfo($sampledomains['domain2']['name']);
 echo "OK\n";
 
 echo "Test 13 - Updating the list of nameservers associated with a domain name";
-if ($mode === 'test') {
-// Provision domain aliases to pass DNS check
+if ($mode === 'test') { // Provision domain aliases to pass DNS check
     $plesk->deleteAlias($sampledomains['domain1']['name']);
     $plesk->createAlias($sampledomains['domain1']['name'], $testdomain_secondary);
-// End of Plesk provisioning code
 }
 $epp->domainUpdate(
     [
@@ -240,6 +235,8 @@ $epp->domainUpdate(
 echo "OK\n";
 
 echo "Test 15 - Request to change the Registrar of a domain name:";
+$epp->domainTransfer($sampledomains['domain1'], 'request');
+echo "OK\n";
 
 /*
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -264,10 +261,9 @@ echo "Test 15 - Request to change the Registrar of a domain name:";
 </epp>
 */
 
-echo "OK\n";
-
 echo "Test 16 - New request to change the Registrar of a domain name:";
-
+$epp->domainTransfer($sampledomains['domain1'], 'request');
+echo "OK\n";
 /*
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
@@ -348,9 +344,8 @@ echo "Test 16 - New request to change the Registrar of a domain name:";
 */
 
 
-echo "OK\n";
-
 echo "Test 17 - Approval of the request to change the Registrar and elimination of the request message from the polling queue:";
+$epp->domainTransfer($sampledomains['domain1']['name'], 'approve');
 
 /*
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
@@ -398,42 +393,15 @@ echo "Test 17 - Approval of the request to change the Registrar and elimination 
     </command>
 </epp>
 */
-
 echo "OK\n";
 
 echo "Test 18 - Modification of the AuthInfo code of a domain name:";
-
-/*
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
-    <command>
-        <update>
-            <domain:update xmlns:domain="urn:ietf:params:xml:ns:domain-1.0" xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0 domain-1.0.xsd">
-                <domain:name>
-                    test.it
-                </domain:name>
-                <domain:chg>
-                    <domain:authInfo>
-                        <domain:pw>
-                            BB-29-IT
-                        </domain:pw>
-                    </domain:authInfo>
-                </domain:chg>
-            </domain:update>
-        </update>
-        <clTRID>
-            xxxxxxx-xxxxxxx
-        </clTRID>
-    </command>
-</epp>
-*/
-
-
+$sampledomains['domain2']['authInfo'] .= '-changed';
 $epp->domainUpdate(
     [
         'name' => $sampledomains['domain2']['name'],
         'chg' => [
-            'authInfo' => ($sampledomains['domain2']['authInfo'] . '-chg')
+            'authInfo' => $sampledomains['domain2']['authInfo']
         ]
     ]
 );
@@ -486,11 +454,11 @@ $epp->domainUpdateRegistrantAndRegistrar(
     </command>
 </epp>
 */
-
 echo "OK\n";
 
 echo "Test 20 - Approval of the request to change the Registrant and the Registrar:";
 
+$epp->domainTransfer($sampledomains['domain1']['name'], 'approve');
 /*
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
@@ -530,7 +498,6 @@ echo "Test 20 - Approval of the request to change the Registrant and the Registr
 echo "OK\n";
 
 echo "Test 21 - Adding a constraint to a domain name to prevent it from being modified:";
-
 $epp->domainUpdate(
     [
         'name' => $sampledomains['domain2']['name'],
@@ -539,89 +506,10 @@ $epp->domainUpdate(
         ]
     ]
 );
-
-/*
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
-    <command>
-        <update>
-            <domain:update xmlns:domain="urn:ietf:params:xml:ns:domain-1.0" xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0 domain-1.0.xsd">
-                <domain:name>
-                    test-1.it
-                </domain:name>
-                <domain:add>
-                    <domain:status s="clientUpdateProhibited"/>
-                </domain:add>
-            </domain:update>
-        </update>
-        <clTRID>
-            xxxxxxx-xxxxxxx
-        </clTRID>
-    </command>
-</epp>
-*/
-
 echo "OK\n";
 
 echo "Test 22 - Cancellation of a domain name:";
-
-/*
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
-    <command>
-        <info>
-            <domain:info xmlns:domain="urn:ietf:params:xml:ns:domain-1.0" xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0 domain-1.0.xsd">
-                <domain:name hosts="all">
-                    test-1.it
-                </domain:name>
-            </domain:info>
-        </info>
-        <clTRID>
-            xxxxxxx-xxxxxxx
-        </clTRID>
-    </command>
-</epp>
-*/
-
-/*
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
-    <command>
-        <delete>
-            <domain:delete xmlns:domain="urn:ietf:params:xml:ns:domain-1.0" xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0 domain-1.0.xsd">
-                <domain:name>
-                    test-1.it
-                </domain:name>
-            </domain:delete>
-        </delete>
-        <clTRID>
-            xxxxxxx-xxxxxxx
-        </clTRID>
-    </command>
-</epp>
-*/
-
-/*
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
-    <command>
-        <info>
-            <domain:info xmlns:domain="urn:ietf:params:xml:ns:domain-1.0" xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0 domain-1.0.xsd">
-                <domain:name hosts="all">
-                    test-1.it
-                </domain:name>
-            </domain:info>
-        </info>
-        <clTRID>
-            xxxxxxx-xxxxxxx
-        </clTRID>
-    </command>
-</epp>
-*/
-
-/*
 $epp->domainDelete($sampledomains['domain1']['domain']);
-*/
 echo "OK\n";
 
 echo "Test 23 - Restoring a deleted domain name:";
@@ -683,79 +571,15 @@ $epp_deleted->domainRecover($sampledomains['domain1']['domain']);
 echo "OK\n";
 
 echo "Test 24 - Cancellation of a contact:";
-
-/*
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
-    <command>
-        <update>
-            <domain:update xmlns:domain="urn:ietf:params:xml:ns:domain-1.0" xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0 domain-1.0.xsd">
-                <domain:name>
-                    test-1.it
-                </domain:name>
-                <domain:rem>
-                    <domain:status s="clientUpdateProhibited"/>
-                </domain:rem>
-            </domain:update>
-        </update>
-        <clTRID>
-            xxxxxxx-xxxxxxx
-        </clTRID>
-    </command>
-</epp>
-*/
-
-/*
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<epp xmlns="urn:ietf:params:xml:ns:epp-1.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
-    <command>
-        <delete>
-            <contact:delete xmlns:contact="urn:ietf:params:xml:ns:contact-1.0" xsi:schemaLocation="urn:ietf:params:xml:ns:contact-1.0 contact-1.0.xsd">
-                <contact:id>
-                    AA10
-                </contact:id>
-            </contact:delete>
-        </delete>
-        <clTRID>
-            xxxxxxx-xxxxxxx
-        </clTRID>
-    </command>
-</epp>
-*/
-
-/*
-<?xml version="1.0" encoding="UTF-8" standalone="no"?>
-<epp xmlns="urn:ietf:params:xml:ns:epp-1.0">
-    <command>
-        <check>
-            <contact:check xmlns:contact="urn:ietf:params:xml:ns:contact-1.0">
-                <contact:id>
-                    AA10
-                </contact:id>
-            </contact:check>
-        </check>
-        <clTRID>
-            xxxxxxx-xxxxxxx
-        </clTRID>
-    </command>
-</epp>
-*/
-
-
-/*
 $epp->contactDelete($samplecontacts['registrant1']['handle']);
-*/
 echo "OK";
 
-$epp->logout();
-/*
-if ($changepassword) {
-    $epp->login($cfg["servers"]["test1"]["password"], $cfg['testpassword']); // restore password
-    $epp->logout();
-}
-*/
 if ($mode === 'test') {
+    // Deprovision domain aliases used to pass DNS check
     $plesk->deleteAlias($sampledomains['domain1']);
     $plesk->deleteAlias($sampledomains['domain2']);
+
+    $epp->logout();
+    $epp2->logout();
 }
 exit(0);

@@ -780,44 +780,75 @@ class Epp
     }
 
     /**
-     * @param $domain
+     * @param array  $domain
+     * @param string $op
+     * @param null   $extdom
      */
-    public function domainRecover($domain)
+    public function domainTransfer(array $domain, string $op, $extension = null)
     {
+        if (!in_array($op, ['request', 'cancel', 'approve', 'reject', 'query'])) throw new RuntimeException('Operation ' . $op . ' is not valid. Accepted operations are \'request\',\'cancel\',\'approve\', \'reject\' and \'query\'.');
+
+        $vars = [
+            'domain' => $domain,
+            'op' => $op
+        ];
+        if ($$extension !== null) $vars['extension'] = $$extension;
+
+        $xml = $this->render('domain-transfer',
+            $vars
+        );
+        $response = $this->send($xml);
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to domain transfer ' . $op . ': ' . $response->response->result->msg);
+            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+            $this->handleReturnCode('domain transfer ' . $op, (int)$code, $reason);
+        }
+
+        $this->log->error('No response to poll transfer request');
+        throw new RuntimeException('No response to transfer request');
     }
 
     /**
-     * @param $handle
+     * Delete a contact
+     *
+     * @param string $handle
      */
-    public function contactDelete($handle)
+    public function contactDelete(string $handle)
     {
+        $xml = $this->render('contact-delete', ['handle' => $handle]);
+        $response = $this->send($xml);
+
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to request of contact ' . $handle . ' deletion: ' . $response->response->result->msg);
+            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+            $this->handleReturnCode('contact delete ' . $handle, (int)$code, $reason);
+        }
+
+        $this->log->error('No response to contact ' . $handle . ' deletion request');
+        throw new RuntimeException('No response to contact ' . $handle . ' deletion request');
     }
 
     /**
-     * @param array $array
+     * Delete a domain
+     *
+     * @param string $name
      */
-    public function domainUpdateRegistrant(array $array)
+    public function domainDelete(string $name)
     {
-    }
+        $xml = $this->render('domain-delete', ['name' => $name]);
+        $response = $this->send($xml);
 
-    /**
-     * @param array $array
-     */
-    public function domainUpdateAuthInfo(array $array)
-    {
-    }
+        if ($this->nodeExists($response->response)) {
+            $code = $response->response->result["code"];
+            $this->log->info('Received a response to request of domain ' . $name . ' deletion: ' . $response->response->result->msg);
+            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+            $this->handleReturnCode('domain delete ' . $name, (int)$code, $reason);
+        }
 
-    /**
-     * @param array $array
-     */
-    public function domainUpdateRegistrantAndRegistrar(array $array)
-    {
-    }
-
-    /**
-     * @param $domain
-     */
-    public function domainDelete($domain)
-    {
+        $this->log->error('No response to domain ' . $name . ' deletion request');
+        throw new RuntimeException('No response to domain ' . $name . ' deletion request');
     }
 }

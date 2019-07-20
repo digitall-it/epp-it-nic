@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<epp xmlns="urn:ietf:params:xml:ns:epp-1.0"
+     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+     xsi:schemaLocation="urn:ietf:params:xml:ns:epp-1.0 epp-1.0.xsd">
+    <command>
+        <transfer op="{{ op }}">
+            <domain:transfer
+                    xmlns:domain="urn:ietf:params:xml:ns:domain-1.0"
+                    xsi:schemaLocation="urn:ietf:params:xml:ns:domain-1.0 domain-1.0.xsd">
+                <domain:name>{{ domain.name }}</domain:name>
+                {% if domain.authInfo is defined %}
+                    <domain:authInfo>
+                        <domain:pw>{{ domain.authInfo }}</domain:pw>
+                    </domain:authInfo>
+                {% endif %}
+            </domain:transfer>
+        </transfer>
+        {% if extension is defined %}
+            <extension>
+                <extdom:trade xmlns:extdom="http://www.nic.it/ITNIC-EPP/extdom-2.0"
+                              xsi:schemaLocation="http://www.nic.it/ITNIC-EPP/extdom-2.0 extdom-2.0.xsd">
+                    <extdom:transferTrade>
+                        {% if extension.newRegistrant is defined %}
+                            <extdom:newRegistrant>{{ extension.newRegistrant }}</extdom:newRegistrant>
+                        {% endif %}
+                        {% if extension.newAuthInfo is defined %}
+                            <extdom:newAuthInfo>
+                                <extdom:pw>{{ extension.newAuthInfo }}</extdom:pw>
+                            </extdom:newAuthInfo>
+                        {% endif %}
+                    </extdom:transferTrade>
+                </extdom:trade>
+            </extension>
+        {% endif %}
+        <clTRID>{{ clTRID }}</clTRID>
+    </command>
+</epp>
