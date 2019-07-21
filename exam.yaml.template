@@ -1,0 +1,128 @@
+servers:
+  exam-a:
+    username: DIGITALL-IT-REG
+    password: "05digitall-it19"
+    uri: https://epp-acc1.nic.it
+  exam-b:
+    username: DIGITALL-IT-REG
+    password: "05digitall-it19"
+    uri: https://epp-acc1.nic.it
+samplecontacts:
+  AA10:
+    handle: "AA10"
+    name: Franco Franchi
+    org: Ente Pubblico AX
+    addr:
+      street: Via dei Condottieri 12
+      city: Livorno
+      sp: LI
+      pc: "57100"
+      cc: IT
+    voice: "+39.0586631212"
+    fax: "+39.0586663131"
+    email: franco.franchi@ente-ax.it
+    pw: "1BAR-foo"
+    consentforpublishing: true
+    registrant:
+      nationalitycode: IT
+      entitytype: 5
+      regcode: "02118312008"
+  BB10:
+    handle: "BB10"
+    name: Sandro Rossi
+    org: Gruppo TNT S.p.A.
+    addr:
+      street: via Tritolo 23
+      city: Pisa
+      sp: PI
+      pc: 56126
+      cc: IT
+    voice: "+39.050311226"
+    fax: "+39.050268298"
+    email: hurtlocker@tnt.it
+    pw: "2fooBAR"
+    consentforpublishing: true
+    registrant:
+      nationalitycode: IT
+      entitytype: 2
+      regcode: "12345678910"
+  IL10:
+    handle: "IL10"
+    name: Ida Lenzi
+    org: Ida Lenzi
+    addr:
+      street: via San Lorenzo 11
+      city: Napoli
+      sp: NA
+      pc: 80100
+      cc: IT
+    voice: "+39.0811686789"
+    fax: "+39.0811686789"
+    email: ida@lenzi.it
+    pw: "h2o-N2"
+    consentforpublishing: true
+    registrant:
+      nationalitycode: IT
+      entitytype: 1
+      regcode: "LNZDIA56R41F839L"
+  CC01:
+    handle: "CC01"
+    name: Carlo Conta
+    org: Unodue srl
+    addr:
+      street: via Po 6
+      city: Pisa
+      sp: PI
+      pc: 56100
+      cc: IT
+    voice: "+39.050111222"
+    fax: "+39.0503222111"
+    email: conta@unodue.it
+    pw: "OneTwoThree"
+    consentforpublishing: true
+  DD01:
+    handle: "DD01"
+    name: Donald Duck
+    org: Warehouse Ltd
+    addr:
+      street: Warehouse street 1
+      city: London
+      sp: London
+      pc: 20010
+      cc: GB
+    voice: "+44.2079696010"
+    fax: "+44.2079696620"
+    email: donald@duck.uk
+    pw: "Money-08"
+    consentforpublishing: true
+sampledomains:
+  test:
+    name: 'test.it'
+    period: 1
+    ns:
+      primary:
+        name: "ns.test.it"
+        ipv4: "192.168.100.10"
+      secondary:
+        name: "ns2.test.it"
+        ipv4: "192.168.100.20"
+      tertiary:
+        name: "ns3.foo.com"
+    contacts:
+      registrant: "AA10"
+      admin: "DD01"
+      tech: "CC01"
+    authInfo: "WWW-test-it"
+  test1:
+    name: 'test-1.it'
+    period: 1
+    ns:
+      primary:
+        name: "ns1.foobar.com"
+      secondary:
+        name: "ns2.foobar.org"
+    contacts:
+      registrant: "BB10"
+      admin: "DD01"
+      tech: "DD01"
+    authInfo: "WWWtest-1"

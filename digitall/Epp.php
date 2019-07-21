@@ -4,6 +4,7 @@ namespace digitall;
 
 use Exception;
 use GuzzleHttp\Client;
+use GuzzleHttp\Cookie\FileCookieJar;
 use GuzzleHttp\Exception\GuzzleException;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
@@ -61,17 +62,25 @@ class Epp
      */
     const RESPONSE_COMPLETED_OBJECT_DOES_NOT_EXIST = 2303;
     /**
-     *
+     * Result code of a response to a request to perform an action on an object with a locked status
+     */
+    const RESPONSE_COMPLETED_OBJECT_STATUS_PROHIBITS_OPERATIONS = 2304;
+    /**
+     * Result code of a response to a request to perform an action on an object that does not belong to parent
      */
     const RESPONSE_FAILED_DATA_MANAGEMENT_POLICY_VIOLATION = 2308;
     /**
-     *
+     * Result code of an empty queue check
      */
     const RESPONSE_COMPLETED_QUEUE_HAS_NO_MESSAGES = 1300;
     /**
-     *
+     * Result code of a non empty queue check
      */
     const RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES = 1301;
+    /**
+     * Result code of a response to an action that is not immediately done but is in a pending state
+     */
+    const RESPONSE_COMPLETED_ACTION_PENDING = 1001;
     /**
      * @var Client GuzzleHTTP client
      */
@@ -107,10 +116,12 @@ class Epp
 
         $this->credentials = $credentials;
 
+        $this->cookiejar = new FileCookieJar(__DIR__ . '/cookies/cookiejar-' . $name . '.txt', true);
+
         $this->client = new Client([
             'base_uri' => $this->credentials['uri'],
             'verify' => false,
-            'cookies' => true
+            'cookies' => $this->cookiejar
         ]);
 
         $tpl_loader = new FilesystemLoader(__DIR__ . '/tpl/epp');
@@ -131,8 +142,10 @@ class Epp
 
     /**
      * Transmit an hello message, helps to mantain connection and receive server parameters
+     *
+     * @return string status
      */
-    public function hello(): void
+    public function hello(): string
     {
 
         $response = $this->send($this->render('hello'));
@@ -140,10 +153,13 @@ class Epp
 
         if ($this->nodeExists($response->greeting)) {
             $this->log->info('Received a greeting after hello');
+            $status = 'OK';
         } else {
             $this->log->error("No greeting after hello");
-            throw new RuntimeException('No greeting after hello');
+            $status = 'KO';
+//            throw new RuntimeException('No greeting after hello');
         }
+        return $status;
 
     }
 
@@ -237,8 +253,10 @@ class Epp
      *
      * @param string $newpassword  New password to use
      * @param string $testpassword Current password to use, overrides config
+     *
+     * @return array status
      */
-    public function login($newpassword = null, $testpassword = null): void
+    public function login($newpassword = null, $testpassword = null): array
     {
         $vars = [
             'clID' => $this->credentials['username'],
@@ -254,23 +272,28 @@ class Epp
         $response = $this->send($xml);
         $this->log->info('login sent');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to login: ' . $response->response->result->msg);
-
-            $this->handleReturnCode('Session start', (int)$code);
-
-            if (
-                self::RESPONSE_COMPLETED_SUCCESS == $code &&
-                $newpassword !== null
-            ) {
-                $this->log->info('Password changed ' . (($testpassword !== null) ? 'back ' : '') . 'to "' . $newpassword . '"');
-            }
-
-        } else {
+        if (!$this->nodeExists($response->response)) {
             $this->log->error("No response to login");
             throw new RuntimeException('No response to login');
-        }
+        };
+
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to login: ' . $msg);
+
+        $this->handleReturnCode('Session start', $code);
+
+        if (self::RESPONSE_COMPLETED_SUCCESS === $code && $newpassword !== null) {
+            $this->log->info('Password changed ' . (($testpassword !== null) ? 'back ' : '') . 'to "' . $newpassword . '"');
+        };
+
+        return
+            ['status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg
+                ]
+            ];
     }
 
     /**
@@ -291,12 +314,12 @@ class Epp
             case self::RESPONSE_FAILED_AUTH_ERROR:
                 $this->log->err($msg . ' - Wrong credentials.');
                 $this->logReason($msg, $reason);
-                throw new RuntimeException ($msg . ' - Wrong credentials.' . $reason);
+                //throw new RuntimeException ($msg . ' - Wrong credentials.' . $reason);
                 break;
             case self::RESPONSE_FAILED_SESSION_LIMIT_EXCEEDED:
                 $this->log->err($msg . ' - Session limit exceeded, server closing connection. Try again later.');
                 $this->logReason($msg, $reason);
-                throw new RuntimeException ($msg . ' - Session limit exceeded, server closing connection. Try again later.' . $reason);
+                //throw new RuntimeException ($msg . ' - Session limit exceeded, server closing connection. Try again later.' . $reason);
                 break;
             case self::RESPONSE_COMPLETED_END_SESSION:
                 $this->log->info($msg . ' - Session ended.');
@@ -307,31 +330,36 @@ class Epp
             case self::RESPONSE_FAILED_COMMAND_USE_ERROR:
                 $this->log->err($msg . ' - Command use error.');
                 $this->logReason($msg, $reason);
-                $this->logout(); // Prevent session limit
-                throw new RuntimeException($msg . ' - Command use error.' . $reason);
+                //$this->logout(); // Prevent session limit
+                //throw new RuntimeException($msg . ' - Command use error.' . $reason);
                 break;
             case self::RESPONSE_FAILED_DATA_MANAGEMENT_POLICY_VIOLATION:
                 $this->log->err($msg . ' - Data management policy violation.');
                 $this->logReason($msg, $reason);
-                $this->logout(); // Prevent session limit
-                throw new RuntimeException($msg . ' - Data management policy violation.' . $reason);
+                break;
+            //$this->logout(); // Prevent session limit
+            //throw new RuntimeException($msg . ' - Data management policy violation.' . $reason);
             case self::RESPONSE_FAILED_SYNTAX_ERROR:
                 $this->log->err($msg . ' - Syntax error.');
                 $this->logReason($msg, $reason);
-                $this->logout(); // Prevent session limit
-                throw new RuntimeException($msg . ' - Syntax error.' . $reason);
+                break;
+            case self::RESPONSE_COMPLETED_OBJECT_STATUS_PROHIBITS_OPERATIONS:
+                $this->log->err($msg . ' - Locked status.');
+                $this->logReason($msg, $reason);
+                //$this->logout(); // Prevent session limit
+                //throw new RuntimeException($msg . ' - Syntax error.' . $reason);
                 break;
             case self::RESPONSE_FAILED_PARAMETER_VALUE_RANGE:
                 $this->log->err($msg . ' - Syntax error.');
                 $this->logReason($msg, $reason);
-                $this->logout(); // Prevent session limit
-                throw new RuntimeException($msg . ' - Syntax error.' . $reason);
+                //$this->logout(); // Prevent session limit
+                //throw new RuntimeException($msg . ' - Syntax error.' . $reason);
                 break;
             case self::RESPONSE_FAILED_REQUIRED_PARAMETER_MISSING:
                 $this->log->err($msg . ' - Required parameter missing.');
                 $this->logReason($msg, $reason);
-                $this->logout(); // Prevent session limit
-                throw new RuntimeException($msg . ' - Required parameter missing.' . $reason);
+                //$this->logout(); // Prevent session limit
+                //throw new RuntimeException($msg . ' - Required parameter missing.' . $reason);
                 break;
             case self::RESPONSE_COMPLETED_OBJECT_DOES_NOT_EXIST:
                 break;
@@ -341,10 +369,13 @@ class Epp
             case self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES:
                 $this->log->info('There are still messages in queue');
                 break;
+            case self::RESPONSE_COMPLETED_ACTION_PENDING:
+                $this->log->info('Command completed successfully; action pending');
+                break;
             default:
                 $this->log->err($msg . ' - Unhandled return code ' . $code);
                 $this->logReason($msg, $reason);
-                $this->logout(); // Prevent session limit
+                //$this->logout(); // Prevent session limit
                 throw new RuntimeException($msg . ' - Unhandled return code ' . $code . '.' . $reason);
                 break;
         }
@@ -363,24 +394,33 @@ class Epp
 
     /**
      * Logs out from the server
+     *
+     * @return array status
      */
-    public function logout(): void
+    public function logout(): array
     {
         $xml = $this->render('logout', ['clTRID' => $this->clTRID]);
         $response = $this->send($xml);
         $this->log->info('logout sent');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-
-            $this->log->info('Received a response to logout: ' . $response->response->result->msg);
-
-            $this->handleReturnCode('Session end', (int)$code);
-
-        } else {
+        if (!$this->nodeExists($response->response)) {
             $this->log->error("No response to logout");
             throw new RuntimeException('No response to logout');
-        }
+        };
+
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to logout: ' . $msg);
+
+        $this->handleReturnCode('Session end', (int)$code);
+
+        return
+            ['status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg
+                ]
+            ];
     }
 
     /**
@@ -388,7 +428,7 @@ class Epp
      *
      * @param $contacts array List of contact handles to check
      *
-     * @return array Result of the check as an array with an availability boolean for each contact handle
+     * @return array Status and availability
      */
     public function contactsCheck($contacts): array
     {
@@ -401,65 +441,89 @@ class Epp
         $handles = rtrim($handles, ', ');
         $this->log->info('contact check sent for ' . $handles);
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to contact check: ' . $response->response->result->msg);
-
-            $this->handleReturnCode('Contact check', (int)$code);
-            if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
-                $ns = $response->getNamespaces(true);
-                /**
-                 * @var $contacts_checked SimpleXMLElement Returned contacts structure with availability data
-                 */
-                $contacts_checked = $response->response->resData->children($ns['contact'])->chkData->cd;
-                $logstring = '';
-                foreach ($contacts_checked as $contact) {
-                    $handle = (string)$contact->id;
-                    $avail = (bool)$contact->id->attributes()->avail;
-                    $availability[$handle] = $avail;
-                    $logstring .= '"' . $handle . '" is ' . ($avail ? '' : 'not ') . 'available, ';
-                }
-                $logstring = rtrim($logstring, ', ') . '.';
-                $this->log->info($logstring);
-            }
-        } else {
+        if (!$this->nodeExists($response->response)) {
             $this->log->error("No response to logout");
             throw new RuntimeException('No response to logout');
         }
 
-        return $availability;
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to contact check: ' . $msg);
+
+        $this->handleReturnCode('Contact check', (int)$code);
+        if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
+            $ns = $response->getNamespaces(true);
+            /**
+             * @var $contacts_checked SimpleXMLElement Returned contacts structure with availability data
+             */
+            $contacts_checked = $response->response->resData->children($ns['contact'])->chkData->cd;
+            $logstring = '';
+            foreach ($contacts_checked as $contact) {
+                $handle = (string)$contact->id;
+                $avail = (bool)$contact->id->attributes()->avail;
+                $availability[$handle] = $avail;
+                $logstring .= '"' . $handle . '" is ' . ($avail ? '' : 'not ') . 'available, ';
+            }
+            $logstring = rtrim($logstring, ', ') . '.';
+            $this->log->info($logstring);
+        }
+
+        return [
+            'availability' => $availability,
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg
+                ]
+        ];
     }
+
 
     /**
      * Creates a contact
      *
      * @param array $contact Details of the contact
+     *
+     * @return array status
      */
-    public function contactCreate(array $contact): void
+    public
+    function contactCreate(array $contact): array
     {
         $xml = $this->render('contact-create', ['contact' => $contact]);
         $response = $this->send($xml);
 
         $this->log->info('contact create sent for "' . $contact['handle'] . '"');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to contact create: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('Contact create', (int)$code, $reason);
-
-        } else {
-            $this->log->error('No response to contact create for "' . $contact['handle'] . '"');
-            throw new RuntimeException('No response to contact create for "' . $contact['handle'] . '"');
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to contact create: ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('Contact create', (int)$code, $reason);
+
+        return
+            [
+                'status' =>
+                    [
+                        'code' => $code,
+                        'msg' => $msg
+                    ]
+            ];
+
     }
 
     /**
      * Updates a contact
      *
      * @param array $contact Details of the contact
+     *
+     * @return array status
      */
-    public function contactUpdate(array $contact): void
+    public
+    function contactUpdate(array $contact): array
     {
 
         $xml = $this->render('contact-update', ['contact' => $contact]);
@@ -468,27 +532,38 @@ class Epp
 
         $this->log->info('contact update sent for "' . $contact['handle'] . '"');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to contact update: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('Contact update', (int)$code, $reason);
-
-        } else {
-            $this->log->error('No response to contact update for "' . $contact['handle'] . '"');
-            throw new RuntimeException('No response to contact update for "' . $contact['handle'] . '"');
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
 
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to contact update: ' . $msg);
+        $reason = $this->nodeExists($response->response->result->extValue->reason) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('Contact update', (int)$code, $reason);
+
+        return [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg,
+                    'reason' => $reason
+                ]
+        ];
+
     }
+
 
     /**
      * Gets contact info
      *
      * @param string $handle
      *
-     * @return array Structured contact data (if exists) with response codes
+     * @return array Status and structured contact data (if exists) with response codes
      */
-    public function contactGetInfo(string $handle)
+    public
+    function contactGetInfo(string $handle): array
     {
         $xml = $this->render('contact-info', ['handle' => $handle]);
 
@@ -496,38 +571,44 @@ class Epp
 
         $this->log->info('contact info sent for "' . $handle . '"');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to contact info: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('Contact info', (int)$code, $reason);
-
-            $return = [
-                'code' => (int)$code
-            ]; // all non blocking codes are returned: success, auth_error, object does not exist
-
-
-            if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
-                $ns = $response->getNamespaces(true);
-                $return['contact'] = $response->response->resData->children($ns['contact'])->infData;
-            };
-
-            return $return;
-
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
 
-        $this->log->error('No response to contact info for "' . $handle . '"');
-        throw new RuntimeException('No response to contact update for "' . $handle . '"');
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to contact info: ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('Contact info', (int)$code, $reason);
+
+        $return = [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg
+                ]
+        ];
+
+        if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
+            $ns = $response->getNamespaces(true);
+            $return['contact'] = $response->response->resData->children($ns['contact'])->infData;
+        };
+
+        return $return;
+
     }
+
 
     /**
      * Checks multiple domains for availability
      *
      * @param $domains
      *
-     * @return array Availability data about contacts
+     * @return array Status and availability data about contacts
      */
-    public function domainsCheck($domains): array
+    public
+    function domainsCheck($domains): array
     {
         $availability = [];
 
@@ -538,99 +619,140 @@ class Epp
         $names = rtrim($names, ', ');
         $this->log->info('domain check sent for ' . $names);
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to domain check: ' . $response->response->result->msg);
-
-            $this->handleReturnCode('domain check', (int)$code);
-            if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
-                $ns = $response->getNamespaces(true);
-                $domains = $response->response->resData->children($ns['domain'])->chkData->cd;
-                $logstring = '';
-                foreach ($domains as $domain) {
-                    $name = (string)$domain->name;
-                    $avail = (bool)$domain->name->attributes()->avail;
-
-                    $return =
-                        ['avail' => $avail];
-                    $logstring .= '"' . $name . '" is ' . ($avail ? '' : 'not ') . 'available, ';
-
-                    if (!$avail) {
-                        $reason = $domain->reason;
-                        $return['reason'] = $reason;
-                        $logstring = rtrim($logstring, ', ') . '(reason is:' . $reason . '), ';
-                    }
-
-                    $availability[$name] = $return;
-
-
-                }
-                $logstring = rtrim($logstring, ', ') . '.';
-                $this->log->info($logstring);
-            }
-        } else {
-            $this->log->error("No response to logout");
-            throw new RuntimeException('No response to logout');
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
 
-        return $availability;
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to domain check: ' . $msg);
+
+        $this->handleReturnCode('domain check', (int)$code);
+
+        $return = [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg
+                ]
+        ];
+
+        if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
+            $ns = $response->getNamespaces(true);
+            $domains = $response->response->resData->children($ns['domain'])->chkData->cd;
+            $logstring = '';
+            foreach ($domains as $domain) {
+                $name = (string)$domain->name;
+                $avail = (bool)$domain->name->attributes()->avail;
+
+                $return_domain =
+                    ['avail' => $avail];
+                $logstring .= '"' . $name . '" is ' . ($avail ? '' : 'not ') . 'available, ';
+
+                if (!$avail) {
+                    $reason = $domain->reason;
+                    $return_domain['reason'] = $reason;
+                    $logstring = rtrim($logstring, ', ') . '(reason is:' . $reason . '), ';
+                }
+
+                $availability[$name] = $return_domain;
+
+
+            }
+            $logstring = rtrim($logstring, ', ') . '.';
+            $this->log->info($logstring);
+
+            $return['availability'] = $availability;
+        }
+
+        return $return;
+
     }
+
 
     /**
      * Creates a domain
      *
      * @param array $domain Structured data of the domain
+     *
+     * @return array status
      */
-    public function domainCreate(array $domain)
+    public
+    function domainCreate(array $domain): array
     {
         $xml = $this->render('domain-create', ['domain' => $domain]);
         $response = $this->send($xml);
 
         $this->log->info('domain create sent for "' . $domain['name'] . '"');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to domain create: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('domain create', (int)$code, $reason);
-
-        } else {
-            $this->log->error('No response to domain create for "' . $domain['handle'] . '"');
-            throw new RuntimeException('No response to domain create for "' . $domain['handle'] . '"');
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
+
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to domain create: ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('domain create', (int)$code, $reason);
+
+        return [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg,
+                    'reason' => $reason
+                ]
+        ];
     }
+
 
     /**
      * Updates a domain
      *
      * @param array $domain Details of the domain to update
+     *
+     * @return array status
      */
-    public function domainUpdate(array $domain)
+    public
+    function domainUpdate(array $domain)
     {
         $xml = $this->render('domain-update', ['domain' => $domain]);
         $response = $this->send($xml);
 
         $this->log->info('domain update sent for "' . $domain['name'] . '"');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to domain update: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('domain update', (int)$code, $reason);
-
-        } else {
-            $this->log->error('No response to domain update for "' . $domain['handle'] . '"');
-            throw new RuntimeException('No response to domain update for "' . $domain['handle'] . '"');
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
+
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to domain update: ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('domain update', (int)$code, $reason);
+
+        return [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg,
+                    'reason' => $reason
+                ]
+        ];
     }
+
 
     /**
      * @param string      $name
      * @param string|null $authInfo
      *
-     * @return array
+     * @return array status
      */
-    public function domainGetInfo(string $name, string $authInfo = null)
+    public
+    function domainGetInfo(string $name, string $authInfo = null)
     {
         $vars = ['name' => $name];
         if ($authInfo !== null) $vars['authInfo'] = $authInfo;
@@ -641,141 +763,143 @@ class Epp
 
         $this->log->info('domain info request sent for "' . $name . '"');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to domain info request: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('domain info', (int)$code, $reason);
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
+        };
 
-            $return = [
-                'code' => (int)$code
-            ]; // all non blocking codes are returned: success, auth_error, object does not exist
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to domain info request: ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('domain info', (int)$code, $reason);
 
 
-            if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
-                $ns = $response->getNamespaces(true);
-                $return['domain'] = $response->response->resData->children($ns['domain'])->infData;
-            };
+        $return = [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg,
+                    'reason' => $reason
+                ]
+        ];
 
-            return $return;
 
-        }
+        if (self::RESPONSE_COMPLETED_SUCCESS == $code) {
+            $ns = $response->getNamespaces(true);
+            $return['domain'] = $response->response->resData->children($ns['domain'])->infData;
+        };
 
-        $this->log->error('No response to domain info for "' . $name . '"');
-        throw new RuntimeException('No response to domain update for "' . $name . '"');
+        return $return;
 
     }
+
 
     /**
      * Check polling queue
-     *
-     * @param bool $force
      */
-    public function pollCheck(bool $force = false): void
+    public
+    function pollCheck(): void
     {
-        $i = 0;
-        do {
-            $i++;
-            if ($force) {
-                do {
-                    sleep(5);
-                    $result = $this->pollRequest();
-                } while ($result['code'] != self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES);
-            } else {
-                $result = $this->pollRequest();
-            }
 
-            //$count = $result["count"];
-            if ($result['code'] == self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES) {
-                $contents = print_r($result, true);
+        $result = $this->pollRequest();
 
-                file_put_contents(__dir__ . '/logs/queue/' . microtime(true) . '.txt', $contents);
+        if ($result['status']['code'] == self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES) {
+            $contents = print_r($result, true);
 
-                $this->pollAck($result['id']);
-            }
+            file_put_contents(__dir__ . '/logs/queue/' . microtime(true) . '.txt', $contents);
 
-        } while ($i < 30 && $result['code'] == self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES);
-        if ($i >= 30) die('EPP Poll check caught an infinite loop.');
+            $this->pollAck($result['id']);
+        }
 
     }
 
     /**
-     * @return array
+     * @return array status with optional message
      */
-    private function pollRequest()
+    public function pollRequest()
     {
         $xml = $this->render('poll-request');
         $response = $this->send($xml);
 
         $this->log->info('Poll req request sent');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to poll req request: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('poll req', (int)$code, $reason);
-
-            $return = [
-                'code' => (int)$code
-            ]; // all non blocking codes are returned: success, auth_error, object does not exist
-
-            if (self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES == $code) {
-                //$ns = $response->getNamespaces(true);
-                //$return['domain'] = $response->response->resData->children($ns['domain'])->infData;
-                $return['msg'] = (string)$response->response->msgQ->msg;
-                $return['count'] = (int)$response->response->msgQ->attributes()->count;
-                $return['id'] = (string)$response->response->msgQ->attributes()->id;
-                $return['date'] = (string)$response->response->msgQ->qDate;
-
-                if ($this->nodeExists($response->response->extension->children('http://www.nic.it/ITNIC-EPP/extdom-2.0'))) {
-                    $extdom = $response->response->extension->children('http://www.nic.it/ITNIC-EPP/extdom-2.0');
-                    $return['dnsErrorMsgData'] = $extdom->dnsErrorMsgData;
-                    $log_dns = $return['dnsErrorMsgData']->asXML();
-                    file_put_contents(__dir__ . '/logs/queue/' . microtime(true) . '-dns.txt', $log_dns);
-                }
-
-                //$return['extension'] = $response->response->extension
-                $this->log->info('Message queued on ' . $return['date'] . ' with ID ' . $return['id'] . ' "' . $return['msg'] . '"');
-            } else if (self::RESPONSE_COMPLETED_QUEUE_HAS_NO_MESSAGES) {
-                $this->log->info('No messages in queue');
-            };
-
-            return $return;
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
 
-        $this->log->error('No response to poll req request');
-        throw new RuntimeException('No response to poll req request');
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to poll req request: ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('poll req', (int)$code, $reason);
 
+        $return =
+            [
+                'status' =>
+                    [
+                        'code' => $code,
+                        'msg' => $msg,
+                        'reason' => $reason
+                    ]
+            ];
+
+        if (self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES == $code) {
+            //$ns = $response->getNamespaces(true);
+            //$return['domain'] = $response->response->resData->children($ns['domain'])->infData;
+            $return['msg'] = (string)$response->response->msgQ->msg;
+            $return['count'] = (int)$response->response->msgQ->attributes()->count;
+            $return['id'] = (string)$response->response->msgQ->attributes()->id;
+            $return['date'] = (string)$response->response->msgQ->qDate;
+
+            if ($this->nodeExists($response->response->extension->children('http://www.nic.it/ITNIC-EPP/extdom-2.0'))) {
+                $extdom = $response->response->extension->children('http://www.nic.it/ITNIC-EPP/extdom-2.0');
+                $return['dnsErrorMsgData'] = $extdom->dnsErrorMsgData;
+                $log_dns = $return['dnsErrorMsgData']->asXML();
+                file_put_contents(__dir__ . '/logs/queue/' . microtime(true) . '-dns.txt', $log_dns);
+            }
+
+            //$return['extension'] = $response->response->extension
+            $this->log->info('Message queued on ' . $return['date'] . ' with ID ' . $return['id'] . ' "' . $return['msg'] . '"');
+        } else if (self::RESPONSE_COMPLETED_QUEUE_HAS_NO_MESSAGES) {
+            $this->log->info('No messages in queue');
+        };
+
+        return $return;
     }
 
     /**
      * @param string $id
      *
-     * @return array
+     * @return array status
      */
-    private function pollAck(string $id)
+    public function pollAck(string $id): array
     {
         $xml = $this->render('poll-ack', ['id' => $id]);
         $response = $this->send($xml);
 
         $this->log->info('Poll ack request sent');
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to poll ack request: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('poll ack', (int)$code, $reason);
-
-            $return = [
-                'code' => (int)$code /* all non blocking codes are returned: success, auth_error, object does not exist */
-            ];
-
-
-            return $return;
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
 
-        $this->log->error('No response to poll ack request');
-        throw new RuntimeException('No response to poll ack request');
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to poll ack request: ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('poll ack', (int)$code, $reason);
+
+        return [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg,
+                    'reason' => $reason
+                ]
+        ];
 
     }
 
@@ -783,8 +907,11 @@ class Epp
      * @param array  $domain
      * @param string $op
      * @param null   $extdom
+     *
+     * @return array status
      */
-    public function domainTransfer(array $domain, string $op, $extension = null)
+    public
+    function domainTransfer(array $domain, string $op, $extension = null): array
     {
         if (!in_array($op, ['request', 'cancel', 'approve', 'reject', 'query'])) throw new RuntimeException('Operation ' . $op . ' is not valid. Accepted operations are \'request\',\'cancel\',\'approve\', \'reject\' and \'query\'.');
 
@@ -799,56 +926,94 @@ class Epp
         );
         $response = $this->send($xml);
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to domain transfer ' . $op . ': ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('domain transfer ' . $op, (int)$code, $reason);
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
 
-        $this->log->error('No response to poll transfer request');
-        throw new RuntimeException('No response to transfer request');
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to domain transfer ' . $op . ': ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('domain transfer ' . $op, (int)$code, $reason);
+
+
+        return [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg,
+                    'reason' => $reason
+                ]
+        ];
     }
+
 
     /**
      * Delete a contact
      *
      * @param string $handle
+     *
+     * @return array status
      */
-    public function contactDelete(string $handle)
+    public
+    function contactDelete(string $handle): array
     {
         $xml = $this->render('contact-delete', ['handle' => $handle]);
         $response = $this->send($xml);
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to request of contact ' . $handle . ' deletion: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('contact delete ' . $handle, (int)$code, $reason);
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
 
-        $this->log->error('No response to contact ' . $handle . ' deletion request');
-        throw new RuntimeException('No response to contact ' . $handle . ' deletion request');
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to request of contact ' . $handle . ' deletion: ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('contact delete ' . $handle, (int)$code, $reason);
+
+        return [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg,
+                    'reason' => $reason
+                ]
+        ];
     }
 
     /**
      * Delete a domain
      *
      * @param string $name
+     *
+     * @return array status
      */
-    public function domainDelete(string $name)
+    public
+    function domainDelete(string $name): array
     {
         $xml = $this->render('domain-delete', ['name' => $name]);
         $response = $this->send($xml);
 
-        if ($this->nodeExists($response->response)) {
-            $code = $response->response->result["code"];
-            $this->log->info('Received a response to request of domain ' . $name . ' deletion: ' . $response->response->result->msg);
-            $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
-            $this->handleReturnCode('domain delete ' . $name, (int)$code, $reason);
+        if (!$this->nodeExists($response->response)) {
+            $this->log->error('No response.');
+            throw new RuntimeException('No response.');
         }
 
-        $this->log->error('No response to domain ' . $name . ' deletion request');
-        throw new RuntimeException('No response to domain ' . $name . ' deletion request');
+        $code = (int)$response->response->result["code"];
+        $msg = (string)$response->response->result->msg;
+        $this->log->info('Received a response to request of domain ' . $name . ' deletion: ' . $msg);
+        $reason = ($this->nodeExists($response->response->result->extValue->reason)) ? $response->response->result->extValue->reason : null;
+        $this->handleReturnCode('domain delete ' . $name, (int)$code, $reason);
+
+        return [
+            'status' =>
+                [
+                    'code' => $code,
+                    'msg' => $msg,
+                    'reason' => $reason
+                ]
+        ];
     }
 }

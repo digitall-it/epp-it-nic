@@ -25,7 +25,7 @@
                     <contact:fax{% if contact.fax_x is defined %} x="{{ contact.fax_x }}"{% endif %}>{{ contact.fax }}</contact:fax>{% endif %}
                 <contact:email>{{ contact.email }}</contact:email>
                 <contact:authInfo>
-                    <contact:pw></contact:pw>
+                    <contact:pw>{% if contact.pw is defined %}{{ contact.pw }}{% endif %}</contact:pw>
                 </contact:authInfo>
             </contact:create>
         </create>

@@ -1,3 +1,4 @@
 vendor
 *.log
 config.yaml
+exam.yaml
