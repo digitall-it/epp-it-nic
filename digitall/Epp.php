@@ -93,6 +93,14 @@ class Epp
      * @var string|null Client transaction ID
      */
     private $clTRID;
+    /**
+     * @var string EPP client name
+     */
+    private $name;
+    /**
+     * @var bool Dry run mode
+     */
+    private $dryrun;
 
     /**
      * Class constructor
@@ -100,9 +108,11 @@ class Epp
      * @param $name        string Name of the Epp instance for the logs
      * @param $credentials array username, password and server
      */
-    public function __construct($name, $credentials)
+    public function __construct($name, $credentials, $dryrun = false)
     {
-
+        $this->name = $name;
+        $this->dryrun = $dryrun;
+        //if($dryrun) file_put_contents(__dir__ . '/logs/epp/'. $this->name . '-dry-run.txt', '');
         try {
             $this->log = new Logger('log-' . $name);
             //ErrorHandler::register($this->log);
@@ -151,6 +161,8 @@ class Epp
         $response = $this->send($this->render('hello'));
         $this->log->info('hello sent');
 
+        if ($this->dryrun) return '';
+
         if ($this->nodeExists($response->greeting)) {
             $this->log->info('Received a greeting after hello');
             $status = 'OK';
@@ -172,6 +184,13 @@ class Epp
      */
     private function send(string $xml, bool $debug = false): SimpleXMLElement
     {
+        if ($this->dryrun) {
+            file_put_contents(__dir__ . '/logs/epp/' . $this->name . '-dry-run.txt', $xml .
+                "\n---------------------------------------------------------------------------------------------\n",
+                FILE_APPEND);
+
+            return new SimpleXMLElement('<xml></xml>');
+        }
         $this->log->debug('Sending... ' . preg_replace('!\s+!', ' ', $xml));
         file_put_contents(__dir__ . '/logs/epp/' . microtime(true) . '-send.xml', $xml);
         try {
@@ -271,6 +290,8 @@ class Epp
         $xml = $this->render('login', $vars);
         $response = $this->send($xml);
         $this->log->info('login sent');
+
+        if ($this->dryrun) return [];
 
         if (!$this->nodeExists($response->response)) {
             $this->log->error("No response to login");
@@ -403,6 +424,8 @@ class Epp
         $response = $this->send($xml);
         $this->log->info('logout sent');
 
+        if ($this->dryrun) return [];
+
         if (!$this->nodeExists($response->response)) {
             $this->log->error("No response to logout");
             throw new RuntimeException('No response to logout');
@@ -440,6 +463,8 @@ class Epp
         foreach ($contacts as $contact) $handles .= '"' . $contact["handle"] . '", ';
         $handles = rtrim($handles, ', ');
         $this->log->info('contact check sent for ' . $handles);
+
+        if ($this->dryrun) return [];
 
         if (!$this->nodeExists($response->response)) {
             $this->log->error("No response to logout");
@@ -494,6 +519,8 @@ class Epp
 
         $this->log->info('contact create sent for "' . $contact['handle'] . '"');
 
+        if ($this->dryrun) return [];
+
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
             throw new RuntimeException('No response.');
@@ -531,6 +558,8 @@ class Epp
         $response = $this->send($xml);
 
         $this->log->info('contact update sent for "' . $contact['handle'] . '"');
+
+        if ($this->dryrun) return [];
 
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
@@ -570,6 +599,8 @@ class Epp
         $response = $this->send($xml);
 
         $this->log->info('contact info sent for "' . $handle . '"');
+
+        if ($this->dryrun) return [];
 
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
@@ -618,6 +649,8 @@ class Epp
         foreach ($domains as $domain) $names .= '"' . $domain["name"] . '", ';
         $names = rtrim($names, ', ');
         $this->log->info('domain check sent for ' . $names);
+
+        if ($this->dryrun) return [];
 
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
@@ -686,6 +719,8 @@ class Epp
 
         $this->log->info('domain create sent for "' . $domain['name'] . '"');
 
+        if ($this->dryrun) return [];
+
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
             throw new RuntimeException('No response.');
@@ -722,6 +757,8 @@ class Epp
         $response = $this->send($xml);
 
         $this->log->info('domain update sent for "' . $domain['name'] . '"');
+
+        if ($this->dryrun) return [];
 
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
@@ -763,6 +800,8 @@ class Epp
 
         $this->log->info('domain info request sent for "' . $name . '"');
 
+        if ($this->dryrun) return [];
+
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
             throw new RuntimeException('No response.');
@@ -802,6 +841,8 @@ class Epp
     function pollCheck(): void
     {
 
+        if ($this->dryrun) return;
+
         $result = $this->pollRequest();
 
         if ($result['status']['code'] == self::RESPONSE_COMPLETED_QUEUE_HAS_MESSAGES) {
@@ -823,6 +864,8 @@ class Epp
         $response = $this->send($xml);
 
         $this->log->info('Poll req request sent');
+
+        if ($this->dryrun) return [];
 
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
@@ -881,6 +924,8 @@ class Epp
 
         $this->log->info('Poll ack request sent');
 
+        if ($this->dryrun) return [];
+
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
             throw new RuntimeException('No response.');
@@ -919,12 +964,15 @@ class Epp
             'domain' => $domain,
             'op' => $op
         ];
-        if ($$extension !== null) $vars['extension'] = $$extension;
+        if ($extension !== null) $vars['extension'] = $extension;
 
         $xml = $this->render('domain-transfer',
             $vars
         );
         $response = $this->send($xml);
+        $this->log->info('Domain transfer request sent, operation ' . $op);
+
+        if ($this->dryrun) return [];
 
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
@@ -962,6 +1010,9 @@ class Epp
         $xml = $this->render('contact-delete', ['handle' => $handle]);
         $response = $this->send($xml);
 
+        $this->log->info('Contact delete for ' . $handle . ' request sent.');
+        if ($this->dryrun) return [];
+
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');
             throw new RuntimeException('No response.');
@@ -995,6 +1046,10 @@ class Epp
     {
         $xml = $this->render('domain-delete', ['name' => $name]);
         $response = $this->send($xml);
+
+        $this->log->info('Domain  delete for ' . $name . ' request sent.');
+        if ($this->dryrun) return [];
+
 
         if (!$this->nodeExists($response->response)) {
             $this->log->error('No response.');

@@ -1,3 +1,4 @@
+dryrun: true
 servers:
   exam:
     username: user_exam

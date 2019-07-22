@@ -1,12 +1,13 @@
+dryrun: true
 servers:
   exam-a:
-    username: DIGITALL-IT-REG
-    password: "05digitall-it19"
-    uri: https://epp-acc1.nic.it
+    username: USERNAME
+    password: PASSWORD
+    uri: "https://epp-acc1.nic.it"
   exam-b:
-    username: DIGITALL-IT-REG
-    password: "05digitall-it19"
-    uri: https://epp-acc1.nic.it
+    username: USERNAME2
+    password: PASSWORD2
+    uri: "https://epp-acc1.nic.it"
 samplecontacts:
   AA10:
     handle: "AA10"
