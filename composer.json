@@ -6,7 +6,6 @@
     "monolog/monolog": "^1.24",
     "guzzlehttp/guzzle": "~6.0",
     "symfony/yaml": "^4.3",
-    "doctrine/orm": "2.6.x-dev",
     "plesk/api-php-lib": "^1.0"
   },
   "require-dev": {

@@ -858,7 +858,7 @@ class Epp
     /**
      * @return array status with optional message
      */
-    public function pollRequest()
+    public function pollRequest(): array
     {
         $xml = $this->render('poll-request');
         $response = $this->send($xml);

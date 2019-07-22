@@ -12,17 +12,23 @@ $epp_b = new Epp('epp-b', $cfg['servers']['exam-b'], $dryrun);
 
 echo 'Test 19 - Request to change the Registrant contextual to a change of the Registrar for a domain name:';
 
+$contact = $cfg["samplecontacts"]['IL10'];
+$contact['handle'] = 'HH10';
+
+$return = $epp_b->contactCreate($contact);
+if (!$dryrun && $return['status']['code'] != 1000) die('FAILED');
+echo 'OK-';
+
 $return = $epp_b->domainTransfer(
     [
         'name' => 'test-1.it',
         'authInfo' => 'WWWtest-1',
-        'extension' =>
-            [
-                'newRegistrant' => 'HH10',
-                'newAuthInfo' => 'HAC6-007'
-            ]
     ],
-    'request'
+    'request',
+    [
+        'newRegistrant' => 'HH10',
+        'newAuthInfo' => 'HAC6-007'
+    ]
 );
 if (!$dryrun && $return['status']['code'] != 1001) die('FAILED');
 

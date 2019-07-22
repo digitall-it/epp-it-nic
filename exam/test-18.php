@@ -10,10 +10,6 @@ $dryrun = $cfg['dryrun'];
 $epp_a = new Epp('epp-a', $cfg['servers']['exam-a'], $dryrun);
 $epp_b = new Epp('epp-b', $cfg['servers']['exam-b'], $dryrun);
 
-$domain_test = $cfg["sampledomains"]['test'];
-$domain_test['authInfo'] = 'newwwtest-it';
-
-
 echo 'Test 18 - Modification of the AuthInfo code of a domain name:';
 
 $return = $epp_b->domainUpdate(

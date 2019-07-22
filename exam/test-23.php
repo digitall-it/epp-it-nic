@@ -18,6 +18,7 @@ $return = $epp_b->domainUpdate(
         'restore' => 'request'
     ]
 );
+
 if (!$dryrun && $return['status']['code'] != 2304) die('FAILED');
 echo "OK-";
 

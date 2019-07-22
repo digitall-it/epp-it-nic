@@ -17,7 +17,7 @@ $return = $epp_a->domainUpdate(
         'name' => 'test.it',
         'rem' => [
             'ns' => [
-                'ns2' => 'ns2.test.it'
+                'ns2' => ['name' => 'ns2.test.it']
             ]
         ]
     ]

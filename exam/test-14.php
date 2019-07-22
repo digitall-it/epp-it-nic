@@ -17,10 +17,8 @@ $return = $epp_a->domainUpdate(
     [
         'name' => 'test.it',
         'chg' => [
-            'contact' => [
-                'registrant' => 'IL10',
-                'authInfo' => 'newwwtest-it'
-            ]
+            'registrant' => 'IL10',
+            'authInfo' => 'newwwtest-it'
         ]
     ]
 );
